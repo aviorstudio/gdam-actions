@@ -1,0 +1,62 @@
+name: 'Publish to GDAM'
+description: 'Publish an addon release to the gdam registry'
+
+inputs:
+  version:
+    description: 'Semver package version to publish, e.g. 1.2.3'
+    required: true
+  tag:
+    description: 'GitHub release tag holding the asset, e.g. v1.2.3'
+    required: true
+  addon:
+    description: >-
+      Addon spec, e.g. @aviorstudio/gd-router. Defaults to @<owner>/<repo> for
+      the repository running the workflow.
+    required: false
+    default: ''
+  asset:
+    description: >-
+      Release asset to publish. Defaults to @<owner>_<repo>.zip, the name the
+      addon release workflows build.
+    required: false
+    default: ''
+  secret-key:
+    description: >-
+      GDAM secret key, scoped to the owner. Pass secrets.GDAM_SECRET_KEY; it is
+      never echoed.
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Publish to GDAM
+      shell: bash
+      env:
+        GDAM_SECRET_KEY: ${{ inputs.secret-key }}
+        GDAM_PUBLISH_VERSION: ${{ inputs.version }}
+        GDAM_PUBLISH_TAG: ${{ inputs.tag }}
+        GDAM_PUBLISH_ADDON: ${{ inputs.addon }}
+        GDAM_PUBLISH_ASSET: ${{ inputs.asset }}
+      run: |
+        set -euo pipefail
+
+        # A missing key otherwise surfaces as an authorization failure from the
+        # registry, which reads like the key is wrong rather than absent.
+        if [ -z "${GDAM_SECRET_KEY:-}" ]; then
+          echo 'Missing required secret: GDAM_SECRET_KEY' >&2
+          exit 1
+        fi
+
+        if ! command -v gdam >/dev/null 2>&1; then
+          echo 'gdam is not on PATH — run aviorstudio/gdam-actions/install first' >&2
+          exit 1
+        fi
+
+        # Defaults derived from the repository, so the common case needs no
+        # inputs beyond the version and tag. GITHUB_REPOSITORY is "owner/repo":
+        # the addon spec is @owner/repo and the asset is @owner_repo.zip.
+        addon="${GDAM_PUBLISH_ADDON:-@${GITHUB_REPOSITORY}}"
+        asset="${GDAM_PUBLISH_ASSET:-@${GITHUB_REPOSITORY/\//_}.zip}"
+
+        echo "Publishing $addon $GDAM_PUBLISH_VERSION from $GDAM_PUBLISH_TAG ($asset)"
+        gdam publish "$addon" "$GDAM_PUBLISH_VERSION" "$GDAM_PUBLISH_TAG" "$asset"

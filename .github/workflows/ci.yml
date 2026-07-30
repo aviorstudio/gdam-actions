@@ -1,0 +1,104 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: install (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Both platforms the install script supports. Every consumer runs on
+        # Linux today, but macOS is a supported target and nothing else checks it.
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install latest
+        id: latest
+        uses: ./install
+
+      - name: gdam is on PATH and runs
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v gdam
+          gdam --version
+          test -n "${{ steps.latest.outputs.version }}"
+
+      - name: Install a pinned version
+        id: pinned
+        uses: ./install
+        with:
+          version: v0.0.6
+          install-dir: ${{ runner.temp }}/gdam-pinned
+
+      - name: The pinned version is the one installed
+        shell: bash
+        run: |
+          set -euo pipefail
+          got="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
+          echo "reported: $got"
+          [ "$got" = "gdam 0.0.6" ] || { echo "expected gdam 0.0.6, got: $got" >&2; exit 1; }
+
+      - name: A version without the leading v resolves the same
+        uses: ./install
+        with:
+          version: '0.0.6'
+          install-dir: ${{ runner.temp }}/gdam-nov
+
+      - name: Both spellings agree
+        shell: bash
+        run: |
+          set -euo pipefail
+          a="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
+          b="$("${{ runner.temp }}/gdam-nov/gdam" --version | head -n 1)"
+          [ "$a" = "$b" ] || { echo "v0.0.6 gave '$a' but 0.0.6 gave '$b'" >&2; exit 1; }
+
+  publish-guards:
+    name: publish guards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The two ways publish is misused. Both should fail with a message that
+      # names the cause, which is the whole reason the guards exist.
+      - name: Fails when gdam is not installed
+        id: no-cli
+        continue-on-error: true
+        uses: ./publish
+        with:
+          version: '1.2.3'
+          tag: 'v1.2.3'
+          secret-key: 'not-a-real-key'
+
+      - name: That failure was expected
+        shell: bash
+        run: |
+          [ "${{ steps.no-cli.outcome }}" = "failure" ] \
+            || { echo 'publish should fail when gdam is missing' >&2; exit 1; }
+
+      - uses: ./install
+
+      - name: Fails when the secret is empty
+        id: no-key
+        continue-on-error: true
+        uses: ./publish
+        with:
+          version: '1.2.3'
+          tag: 'v1.2.3'
+          secret-key: ''
+
+      - name: That failure was expected too
+        shell: bash
+        run: |
+          [ "${{ steps.no-key.outcome }}" = "failure" ] \
+            || { echo 'publish should fail when the secret key is empty' >&2; exit 1; }
