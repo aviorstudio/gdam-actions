@@ -1,0 +1,56 @@
+name: 'Install GDAM'
+description: 'Install the gdam CLI (Godot Addon Manager) and put it on PATH'
+
+inputs:
+  version:
+    description: >-
+      Release to install: "latest", or a version with or without the leading v
+      ("0.0.7" and "v0.0.7" are the same). Pin it if you want reproducible runs.
+    required: false
+    default: 'latest'
+  install-dir:
+    description: >-
+      Where to put the binary. The default is under the runner temp directory,
+      which needs no sudo and disappears with the job.
+    required: false
+    default: ''
+
+outputs:
+  version:
+    description: 'The version actually installed, as reported by gdam --version'
+    value: ${{ steps.install.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    # Delegates to gdam's own install script rather than reimplementing the
+    # download here, so there is one definition of how gdam gets installed. The
+    # script resolves "latest", normalizes the tag, picks the right OS/arch
+    # artifact, and — unlike a plain `gh release download` — verifies the
+    # published checksum before installing.
+    - name: Install GDAM
+      id: install
+      shell: bash
+      env:
+        GDAM_INSTALL_VERSION: ${{ inputs.version }}
+        GDAM_INSTALL_DIR: ${{ inputs.install-dir }}
+      run: |
+        set -euo pipefail
+
+        dest="${GDAM_INSTALL_DIR:-$RUNNER_TEMP/gdam-bin}"
+        mkdir -p "$dest"
+
+        curl -fsSL https://raw.githubusercontent.com/aviorstudio/gdam/main/scripts/install_cli.sh \
+          | VERSION="$GDAM_INSTALL_VERSION" INSTALL_DIR="$dest" sh
+
+        echo "$dest" >> "$GITHUB_PATH"
+
+        # Report what landed, and fail loudly here rather than several steps
+        # later at the first gdam command if the install silently did nothing.
+        if [ ! -x "$dest/gdam" ]; then
+          echo "gdam was not installed at $dest/gdam" >&2
+          exit 1
+        fi
+        installed="$("$dest/gdam" --version | head -n 1)"
+        echo "version=$installed" >> "$GITHUB_OUTPUT"
+        echo "Installed $installed"
