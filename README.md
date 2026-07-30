@@ -7,13 +7,13 @@ shared by every repository that needs either.
 ## Install GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v1
+- uses: aviorstudio/gdam-actions/install@v0
 ```
 
 Pin the version for reproducible runs:
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v1
+- uses: aviorstudio/gdam-actions/install@v0
   with:
     version: v0.0.7
 ```
@@ -33,9 +33,9 @@ is checksum-verified against the release's `checksums.txt`.
 ## Publish to GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v1
+- uses: aviorstudio/gdam-actions/install@v0
 
-- uses: aviorstudio/gdam-actions/publish@v1
+- uses: aviorstudio/gdam-actions/publish@v0
   with:
     version: ${{ steps.release.outputs.version }}
     tag: ${{ steps.release.outputs.tag }}
@@ -58,9 +58,12 @@ rather than failing with "gdam: command not found".
 
 ## Versioning
 
-Consumers should track the major tag, `@v1`. It moves forward with each release
-in the 1.x line, so a fix reaches every repository without 17 pull requests.
-Pin `@v1.2.3` instead if you want a release to stay put.
+Consumers should track the major tag, `@v0`. It moves forward with each release
+in the 0.x line, so a fix reaches every repository without 17 pull requests.
+Pin `@v0.1.0` instead if you want a release to stay put.
+
+These actions are pre-1.0 on purpose: while the line is `0.x`, inputs may still
+change between releases.
 
 ## License
 
