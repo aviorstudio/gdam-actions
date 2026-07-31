@@ -40,7 +40,12 @@ runs:
         dest="${GDAM_INSTALL_DIR:-$RUNNER_TEMP/gdam-bin}"
         mkdir -p "$dest"
 
-        curl -fsSL https://raw.githubusercontent.com/aviorstudio/gdam/main/scripts/install_cli.sh \
+        # Retry the fetch: this is a network call on every run of every repo
+        # that uses the action, and a transient 502 from raw.githubusercontent
+        # would otherwise fail the job outright. curl --retry covers exactly the
+        # transient HTTP statuses (408, 429, 5xx) plus connection failures.
+        curl -fsSL --retry 3 --retry-delay 2 \
+          https://raw.githubusercontent.com/aviorstudio/gdam/main/scripts/install_cli.sh \
           | VERSION="$GDAM_INSTALL_VERSION" INSTALL_DIR="$dest" sh
 
         echo "$dest" >> "$GITHUB_PATH"
