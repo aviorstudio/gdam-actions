@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main
+  # Callable, so Release runs exactly these checks rather than a copy of them.
+  # A reusable WORKFLOW rather than a composite action, because the install job
+  # is a matrix over two operating systems and a matrix belongs to a job -- a
+  # composite action cannot own one, so reusing it that way would have meant
+  # rewriting the matrix in the caller and letting the two drift.
+  workflow_call:
 
 permissions:
   contents: read
