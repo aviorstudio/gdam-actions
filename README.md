@@ -7,13 +7,13 @@ shared by every repository that needs either.
 ## Install GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0
+- uses: aviorstudio/gdam-actions/install@v0.1.2
 ```
 
 Pin the version for reproducible runs:
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0
+- uses: aviorstudio/gdam-actions/install@v0.1.2
   with:
     version: v0.0.7
 ```
@@ -33,9 +33,9 @@ is checksum-verified against the release's `checksums.txt`.
 ## Publish to GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0
+- uses: aviorstudio/gdam-actions/install@v0.1.2
 
-- uses: aviorstudio/gdam-actions/publish@v0
+- uses: aviorstudio/gdam-actions/publish@v0.1.2
   with:
     version: ${{ steps.release.outputs.version }}
     tag: ${{ steps.release.outputs.tag }}
@@ -58,12 +58,32 @@ rather than failing with "gdam: command not found".
 
 ## Versioning
 
-Consumers should track the major tag, `@v0`. It moves forward with each release
-in the 0.x line, so a fix reaches every repository without 17 pull requests.
-Pin `@v0.1.0` instead if you want a release to stay put.
+**Every release is its own tag, and no tag ever moves.** Pin one:
+
+```yaml
+- uses: aviorstudio/gdam-actions/install@v0.1.2
+```
+
+`@v0.1.2` resolves to the same files for as long as it exists, so upgrading is
+a visible edit in a pull request and rolling back is naming the version before
+it.
+
+There used to be a moving `@v0` that each release repointed. It bought "a fix
+reaches every repository without 17 pull requests" and cost the other half of
+that sentence: a BAD release also reached every repository, immediately, with
+no way to stay on the previous one short of finding its SHA by hand — and
+nothing in a consumer's workflow recorded which files it was actually running.
+Seventeen pull requests is the price of knowing.
+
+A commit SHA is stronger still, because a tag can in principle be deleted and
+recreated where a commit cannot.
 
 These actions are pre-1.0 on purpose: while the line is `0.x`, inputs may still
-change between releases.
+change between releases. Read the release notes before bumping.
+
+Releases are cut by the [Release workflow](.github/workflows/release.yml) —
+`workflow_dispatch` with a `patch`/`minor`/`major` choice. It re-runs CI
+against the commit first, then creates the tag and the release.
 
 ## License
 
