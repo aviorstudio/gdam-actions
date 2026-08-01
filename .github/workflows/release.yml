@@ -56,6 +56,14 @@ jobs:
   # verification this repository has.
   verify:
     uses: ./.github/workflows/ci.yml
+    # Explicit, and required. The workflow-level `permissions: {}` above grants
+    # `contents: none`, and a called workflow cannot ask for more than its
+    # caller has -- ci.yml declares `contents: read`, so without this the run
+    # fails at STARTUP with no jobs and no log, which is a hard failure to read
+    # backwards from. Jobs that call a reusable workflow have to be granted
+    # what it declares.
+    permissions:
+      contents: read
 
   release:
     needs: verify
