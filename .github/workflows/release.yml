@@ -1,0 +1,148 @@
+name: Release
+
+# Cut a release: verify, tag, publish.
+#
+# Releasing was a `git tag` by hand, and the moving `v0` alongside it was moved
+# by hand too -- so a release was two commands nothing checked, and forgetting
+# the second one silently left every consumer on the previous version.
+#
+# --- what a release is here -----------------------------------------------
+#
+# There is no build and nothing to attach. The artefact is this repository at a
+# commit, so the tag IS the release. That also means there is no provenance to
+# attest, unlike a repository that ships a binary.
+#
+# Note what this deliberately does NOT do, in contrast to the sibling
+# komizo-actions: it does not rewrite any `uses:` refs before tagging. That
+# machinery exists there because its `deploy` action composes five siblings,
+# and GitHub resolves each inner `uses:` independently of the caller's ref --
+# so a consumer's SHA pin would cover one file and leave five floating. Neither
+# action here composes a sibling, so there is nothing to rewrite and a copy of
+# that script would be ceremony guarding a problem this repository does not
+# have.
+#
+# --- immutability ---------------------------------------------------------
+#
+# Every version is its own tag and no tag ever moves. A consumer who pinned
+# one keeps getting the same files, upgrading is a visible edit in a pull
+# request, and rolling back is naming the version before it.
+#
+# The old moving `v0` is the thing this replaces. It matches 'v[0-9]*' but not
+# the three-part pattern, so the version scan below filters it out rather than
+# parsing it as a version and bumping it into something meaningless.
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+# Nothing by default; each job asks for what it needs.
+permissions: {}
+
+concurrency: release-${{ github.repository }}
+
+jobs:
+  # The same checks CI runs, from the same file. Running them again against this
+  # exact commit is not redundant: CI passing on this SHA earlier is a claim
+  # about that run, and a release is what sixteen other repositories actually
+  # execute. Real installs on both supported platforms are the only meaningful
+  # verification this repository has.
+  verify:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      # Create the tag and the release. No commit is pushed -- unlike
+      # komizo-actions, nothing is rewritten before tagging.
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # The version comes from the tag history, which a shallow clone
+          # does not have.
+          fetch-depth: 0
+
+      - name: Releases come from main
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+            echo "::error::run releases from the main branch, not $GITHUB_REF"
+            exit 1
+          fi
+
+      - name: Determine release version
+        id: release
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -euo pipefail
+          git fetch --tags --force
+          # Three-part tags only. `v0` matches the glob and would otherwise be
+          # read as a version and bumped into nonsense.
+          latest="$(git tag --list 'v[0-9]*' | sed 's/^v//' \
+            | grep -E '^[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -n 1 || true)"
+          if [ -z "$latest" ]; then
+            case "$BUMP" in
+              major) version="1.0.0" ;;
+              minor) version="0.1.0" ;;
+              patch) version="0.0.1" ;;
+              *) echo "::error::unsupported bump: $BUMP"; exit 1 ;;
+            esac
+          else
+            IFS=. read -r major minor patch <<< "$latest"
+            case "$BUMP" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              patch) patch=$((patch + 1)) ;;
+              *) echo "::error::unsupported bump: $BUMP"; exit 1 ;;
+            esac
+            version="${major}.${minor}.${patch}"
+          fi
+          tag="v${version}"
+          # Never move an existing tag. That is the property the version is
+          # for: whoever pinned it must keep getting the same files.
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "::error::$tag already exists -- releases are immutable, pick the next version"
+            exit 1
+          fi
+          echo "previous: ${latest:+v}${latest:-none}"
+          echo "releasing: $tag"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # --generate-notes writes the commit list since the previous tag,
+          # which is the honest default for a repository with no build to
+          # describe. The upgrade line is appended because it is the one thing
+          # a consumer has to do and it is the same every time.
+          cat > notes.md <<NOTES
+          ## Upgrading
+
+          \`\`\`yaml
+          - uses: ${GITHUB_REPOSITORY}/install@${TAG}
+          - uses: ${GITHUB_REPOSITORY}/publish@${TAG}
+          \`\`\`
+
+          Every version is its own immutable tag — no tag moves, so this one
+          resolves to the same files for as long as it exists.
+          NOTES
+          # --target creates the tag at this commit; there is no separate
+          # `git tag` and push to forget.
+          gh release create "$TAG" \
+            --target "$GITHUB_SHA" \
+            --title "$TAG" \
+            --notes-file notes.md \
+            --generate-notes
