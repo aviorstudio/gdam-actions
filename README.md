@@ -21,6 +21,7 @@ Pin the version for reproducible runs:
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
 | `version` | `latest` | Release to install. `0.0.7` and `v0.0.7` are equivalent. |
+| `token` | `${{ github.token }}` | Authenticates the API call that resolves `latest`. The default is almost always right — pass one only if the release lives somewhere the workflow's own token cannot read. |
 | `install-dir` | `$RUNNER_TEMP/gdam-bin` | Where the binary goes. Needs no sudo. |
 
 | Output | Purpose |

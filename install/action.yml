@@ -14,6 +14,21 @@ inputs:
       which needs no sudo and disappears with the job.
     required: false
     default: ''
+  token:
+    description: >-
+      Token for the GitHub API call that resolves "latest". Defaults to the
+      workflow's own token, so callers need do nothing.
+
+      It is here because the unauthenticated API allows 60 requests an hour PER
+      IP ADDRESS and runners share addresses -- macOS runners heavily enough
+      that resolving "latest" returned 403 several times an hour, failing
+      installs intermittently in every repository using this action. A token
+      scopes that limit to the token instead: 1000/hour per repository.
+
+      Pass a different one only if the release you are installing lives
+      somewhere the workflow's own token cannot read.
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   version:
@@ -34,6 +49,11 @@ runs:
       env:
         GDAM_INSTALL_VERSION: ${{ inputs.version }}
         GDAM_INSTALL_DIR: ${{ inputs.install-dir }}
+        # Read by the install script to authenticate the "latest" lookup. Named
+        # GDAM_GITHUB_TOKEN rather than GITHUB_TOKEN so this hands the script
+        # exactly what the caller chose, instead of quietly inheriting whatever
+        # the job happened to have in GITHUB_TOKEN.
+        GDAM_GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
