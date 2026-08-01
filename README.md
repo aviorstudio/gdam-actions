@@ -7,13 +7,13 @@ shared by every repository that needs either.
 ## Install GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.1.2
+- uses: aviorstudio/gdam-actions/install@v0.0.1
 ```
 
 Pin the version for reproducible runs:
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.1.2
+- uses: aviorstudio/gdam-actions/install@v0.0.1
   with:
     version: v0.0.7
 ```
@@ -34,9 +34,9 @@ is checksum-verified against the release's `checksums.txt`.
 ## Publish to GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.1.2
+- uses: aviorstudio/gdam-actions/install@v0.0.1
 
-- uses: aviorstudio/gdam-actions/publish@v0.1.2
+- uses: aviorstudio/gdam-actions/publish@v0.0.1
   with:
     version: ${{ steps.release.outputs.version }}
     tag: ${{ steps.release.outputs.tag }}
@@ -62,10 +62,10 @@ rather than failing with "gdam: command not found".
 **Every release is its own tag, and no tag ever moves.** Pin one:
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.1.2
+- uses: aviorstudio/gdam-actions/install@v0.0.1
 ```
 
-`@v0.1.2` resolves to the same files for as long as it exists, so upgrading is
+`@v0.0.1` resolves to the same files for as long as it exists, so upgrading is
 a visible edit in a pull request and rolling back is naming the version before
 it.
 
