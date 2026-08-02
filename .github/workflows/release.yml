@@ -68,6 +68,9 @@ jobs:
   release:
     needs: verify
     runs-on: ubuntu-latest
+    # Bounded, so a step that hangs fails here rather than sitting until the
+    # runner's own timeout hours later.
+    timeout-minutes: 20
     permissions:
       # Create the tag and the release. No commit is pushed -- unlike
       # komizo-actions, nothing is rewritten before tagging.
