@@ -15,10 +15,25 @@ on:
 permissions:
   contents: read
 
+# TWO JOBS, BOTH LOAD-BEARING. The organisation's rule is one job per
+# workflow; this file is the documented exception, for two independent reasons.
+#
+#   `install` is a matrix across ubuntu and macos. A composite action cannot
+#   express a matrix, and collapsing this to one runner would silently drop the
+#   macOS coverage that nothing else provides.
+#
+#   `publish-guards` asserts that publish FAILS when gdam is not installed, and
+#   only afterwards runs ./install. It needs a machine where the CLI is absent.
+#   Merged into a job that has already installed it, that assertion would pass
+#   for the wrong reason -- or rather, fail, which is worse: the guard would be
+#   reported broken when it is the test that had been invalidated.
 jobs:
   install:
     name: install (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Bounded, so a step that hangs fails here rather than sitting until the
+    # runner's own timeout hours later.
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -26,7 +41,7 @@ jobs:
         # Linux today, but macOS is a supported target and nothing else checks it.
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Install latest
         id: latest
@@ -72,8 +87,11 @@ jobs:
   publish-guards:
     name: publish guards
     runs-on: ubuntu-latest
+    # Bounded, so a step that hangs fails here rather than sitting until the
+    # runner's own timeout hours later.
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       # The two ways publish is misused. Both should fail with a message that
       # names the cause, which is the whole reason the guards exist.
