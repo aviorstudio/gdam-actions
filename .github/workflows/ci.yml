@@ -41,7 +41,7 @@ jobs:
         # Linux today, but macOS is a supported target and nothing else checks it.
         os: [ubuntu-latest, macos-latest]
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install latest
         id: latest
@@ -91,7 +91,7 @@ jobs:
     # runner's own timeout hours later.
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # The two ways publish is misused. Both should fail with a message that
       # names the cause, which is the whole reason the guards exist.
