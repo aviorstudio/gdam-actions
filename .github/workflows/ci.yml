@@ -96,6 +96,14 @@ jobs:
       - name: Exact-tag and immutable-source contract tests
         run: bash tests/test-contracts.sh
 
+      - name: Create a masked test credential
+        id: test-key
+        shell: bash
+        run: |
+          value="$(openssl rand -hex 16)"
+          echo "::add-mask::$value"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
       # The two ways publish is misused. Both should fail with a message that
       # names the cause, which is the whole reason the guards exist.
       - name: Fails when gdam is not installed
@@ -104,7 +112,7 @@ jobs:
         uses: ./publish
         with:
           tag: 'Release-V1.2.3'
-          secret-key: 'not-a-real-key'
+          secret-key: ${{ steps.test-key.outputs.value }}
 
       - name: That failure was expected
         shell: bash
@@ -134,7 +142,7 @@ jobs:
         uses: ./publish
         with:
           tag: 'Release-V1.2.3'
-          secret-key: 'not-a-real-key'
+          secret-key: ${{ steps.test-key.outputs.value }}
 
       - name: The old CLI contract was rejected
         shell: bash

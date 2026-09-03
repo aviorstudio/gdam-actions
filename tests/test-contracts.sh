@@ -27,7 +27,7 @@ chmod +x "$tmp/bin/gdam"
 
 run_publish() {
   PATH="$tmp/bin:$PATH" \
-    GDAM_SECRET_KEY='test-placeholder-not-a-secret' \
+    GDAM_SECRET_KEY="test-$RANDOM-$RANDOM" \
     GDAM_PUBLISH_ADDON='@aviorstudio/example' \
     GDAM_PUBLISH_TAG='Release-V1.2.3' \
     GDAM_PUBLISH_ASSET="${1:-}" \
