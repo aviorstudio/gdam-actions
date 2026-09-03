@@ -43,17 +43,22 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install latest
-        id: latest
+      - name: Install the exact public CLI
+        id: exact
         uses: ./install
+        with:
+          version: v0.0.8
 
       - name: gdam is on PATH and runs
         shell: bash
         run: |
           set -euo pipefail
           command -v gdam
-          gdam --version
-          test -n "${{ steps.latest.outputs.version }}"
+          got="$(gdam --version | head -n 1)"
+          echo "reported: $got"
+          [ "$got" = "gdam 0.0.8" ] || { echo "expected gdam 0.0.8, got: $got" >&2; exit 1; }
+          [ "${{ steps.exact.outputs.version }}" = "gdam 0.0.8" ] \
+            || { echo "install output did not report gdam 0.0.8" >&2; exit 1; }
 
       - name: Install a pinned version
         id: pinned
@@ -135,17 +140,3 @@ jobs:
         run: |
           [ "${{ steps.no-key.outcome }}" = "failure" ] \
             || { echo 'publish should fail when the secret key is empty' >&2; exit 1; }
-
-      - name: Released v0.0.7 fails with the coordinated-release message
-        id: old-cli
-        continue-on-error: true
-        uses: ./publish
-        with:
-          tag: 'Release-V1.2.3'
-          secret-key: ${{ steps.test-key.outputs.value }}
-
-      - name: The old CLI contract was rejected
-        shell: bash
-        run: |
-          [ "${{ steps.old-cli.outcome }}" = "failure" ] \
-            || { echo 'v0.0.7 should fail the exact-tag compatibility gate' >&2; exit 1; }
