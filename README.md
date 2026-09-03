@@ -29,45 +29,72 @@ Pin the version for reproducible runs:
 | `version` | What was installed, as `gdam --version` reports it. |
 
 The binary is added to `PATH`, so later steps can just call `gdam`. The download
-is checksum-verified against the release's `checksums.txt`.
+is checksum-verified against the release's `checksums.txt`. The installer script
+itself is fetched from a full `gdam` commit SHA rather than mutable `main`; the
+checksum verification remains part of that pinned script.
 
 ## Publish to GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.0.1
-
-- uses: aviorstudio/gdam-actions/publish@v0.0.1
+- uses: aviorstudio/gdam-actions/install@<release-from-gdam-be-78>
   with:
-    version: ${{ steps.release.outputs.version }}
+    version: <cli-release-from-gdam-be-80>
+
+- uses: aviorstudio/gdam-actions/publish@<release-from-gdam-be-78>
+  with:
     tag: ${{ steps.release.outputs.tag }}
     secret-key: ${{ secrets.GDAM_SECRET_KEY }}
 ```
 
+The release placeholders are intentional: the compatible CLI and action
+releases do not exist yet. Do not replace them with `v0.0.7` and `v0.0.1`;
+those public releases implement the old contract described below.
+
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
-| `version` | required | Semver package version, e.g. `1.2.3`. |
-| `tag` | required | GitHub release tag holding the asset, e.g. `v1.2.3`. |
+| `tag` | required | Exact, case-sensitive GitHub Release tag, e.g. `v1.2.3`. |
 | `addon` | `@<owner>/<repo>` | Addon spec. |
-| `asset` | `@<owner>_<repo>.zip` | Release asset to publish. |
+| `asset` | automatic | Exact asset name. Omit only when the release has exactly one asset. |
 | `secret-key` | required | Owner-scoped key. Pass `secrets.GDAM_SECRET_KEY`. |
 
-The defaults match what the addon release workflows already build, so a normal
-addon repository only passes `version`, `tag`, and `secret-key`.
+No separate semantic package version is accepted or sent. Release identity is
+the one exact tag, preserved byte-for-byte; `Release-V1.2.3` and
+`release-v1.2.3` are different tags. If a release has multiple assets, pass the
+exact `asset` selector.
 
 Publishing needs the CLI, so run `install` first — `publish` says so plainly
 rather than failing with "gdam: command not found".
 
+### Coordinated release compatibility
+
+The public `gdam` CLI release is currently **v0.0.7**, whose publish command is
+the old `VERSION RELEASE_TAG` form. The exact-tag command is merged on
+`gdam/main` but is not a public CLI release yet; its release is tracked by
+[gdam-be#80](https://github.com/aviorstudio/gdam-be/issues/80). This action
+fails closed with a specific compatibility message when it detects v0.0.7 (or
+an unknown command shape), before publishing or making a registry request.
+
+The only public action release, `v0.0.1`, remains on the old two-identity
+contract. This source change does not alter that tag and does not claim that it
+supports exact tags. After #80 publishes the matching CLI, gdam-actions release
+[#78](https://github.com/aviorstudio/gdam-be/issues/78) can expose this new
+contract to consumers. Until then, `gdam-actions/main` is merged source, not a
+released action contract.
+
 ## Versioning
 
-**Every release is its own tag, and no tag ever moves.** Pin one:
+Every release has its own tag, and repository policy is never to move one. Pin
+one:
 
 ```yaml
 - uses: aviorstudio/gdam-actions/install@v0.0.1
 ```
 
-`@v0.0.1` resolves to the same files for as long as it exists, so upgrading is
-a visible edit in a pull request and rolling back is naming the version before
-it.
+**Correction:** earlier documentation called those tags immutable. Git tags can
+be moved or deleted; GitHub documents a full 40-character commit SHA as the only
+immutable action pin. Prefer a verified full SHA when that guarantee is needed.
+Version tags remain the readable project convention and are protected by the
+release workflow's no-overwrite check and the repository's no-move policy.
 
 There used to be a moving `@v0` that each release repointed. It bought "a fix
 reaches every repository without 17 pull requests" and cost the other half of
@@ -76,8 +103,7 @@ no way to stay on the previous one short of finding its SHA by hand — and
 nothing in a consumer's workflow recorded which files it was actually running.
 Seventeen pull requests is the price of knowing.
 
-A commit SHA is stronger still, because a tag can in principle be deleted and
-recreated where a commit cannot.
+A commit SHA is the immutable option because a tag can be deleted and recreated.
 
 These actions are pre-1.0 on purpose: while the line is `0.x`, inputs may still
 change between releases. Read the release notes before bumping.

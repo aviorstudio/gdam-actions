@@ -93,6 +93,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Exact-tag and immutable-source contract tests
+        run: bash tests/test-contracts.sh
+
+      - name: Create a masked test credential
+        id: test-key
+        shell: bash
+        run: |
+          value="$(openssl rand -hex 16)"
+          echo "::add-mask::$value"
+          echo "value=$value" >> "$GITHUB_OUTPUT"
+
       # The two ways publish is misused. Both should fail with a message that
       # names the cause, which is the whole reason the guards exist.
       - name: Fails when gdam is not installed
@@ -100,9 +111,8 @@ jobs:
         continue-on-error: true
         uses: ./publish
         with:
-          version: '1.2.3'
-          tag: 'v1.2.3'
-          secret-key: 'not-a-real-key'
+          tag: 'Release-V1.2.3'
+          secret-key: ${{ steps.test-key.outputs.value }}
 
       - name: That failure was expected
         shell: bash
@@ -117,8 +127,7 @@ jobs:
         continue-on-error: true
         uses: ./publish
         with:
-          version: '1.2.3'
-          tag: 'v1.2.3'
+          tag: 'Release-V1.2.3'
           secret-key: ''
 
       - name: That failure was expected too
@@ -126,3 +135,17 @@ jobs:
         run: |
           [ "${{ steps.no-key.outcome }}" = "failure" ] \
             || { echo 'publish should fail when the secret key is empty' >&2; exit 1; }
+
+      - name: Released v0.0.7 fails with the coordinated-release message
+        id: old-cli
+        continue-on-error: true
+        uses: ./publish
+        with:
+          tag: 'Release-V1.2.3'
+          secret-key: ${{ steps.test-key.outputs.value }}
+
+      - name: The old CLI contract was rejected
+        shell: bash
+        run: |
+          [ "${{ steps.old-cli.outcome }}" = "failure" ] \
+            || { echo 'v0.0.7 should fail the exact-tag compatibility gate' >&2; exit 1; }

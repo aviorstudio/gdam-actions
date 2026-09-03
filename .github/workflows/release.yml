@@ -23,9 +23,9 @@ name: Release
 #
 # --- immutability ---------------------------------------------------------
 #
-# Every version is its own tag and no tag ever moves. A consumer who pinned
-# one keeps getting the same files, upgrading is a visible edit in a pull
-# request, and rolling back is naming the version before it.
+# Every version is its own tag and repository policy is never to move one. The
+# workflow refuses to overwrite a tag. GitHub nevertheless documents only a
+# full commit SHA as an immutable action pin because tags can be moved/deleted.
 #
 # The old moving `v0` is the thing this replaces. It matches 'v[0-9]*' but not
 # the three-part pattern, so the version scan below filters it out rather than
@@ -147,8 +147,9 @@ jobs:
           - uses: ${GITHUB_REPOSITORY}/publish@${TAG}
           \`\`\`
 
-          Every version is its own immutable tag — no tag moves, so this one
-          resolves to the same files for as long as it exists.
+          Every version has its own tag, and repository policy is never to move
+          one. For an immutable pin, use the release's full commit SHA; GitHub
+          tags can be moved or deleted.
           NOTES
           # --target creates the tag at this commit; there is no separate
           # `git tag` and push to forget.

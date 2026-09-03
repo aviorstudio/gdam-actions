@@ -42,7 +42,9 @@ runs:
     # download here, so there is one definition of how gdam gets installed. The
     # script resolves "latest", normalizes the tag, picks the right OS/arch
     # artifact, and — unlike a plain `gh release download` — verifies the
-    # published checksum before installing.
+    # published checksum before installing. Fetch the script from an immutable
+    # gdam commit, not mutable main: this action handles a workflow token and
+    # executes the downloaded bytes.
     - name: Install GDAM
       id: install
       shell: bash
@@ -65,7 +67,7 @@ runs:
         # would otherwise fail the job outright. curl --retry covers exactly the
         # transient HTTP statuses (408, 429, 5xx) plus connection failures.
         curl -fsSL --retry 3 --retry-delay 2 \
-          https://raw.githubusercontent.com/aviorstudio/gdam/main/scripts/install_cli.sh \
+          https://raw.githubusercontent.com/aviorstudio/gdam/ac84c9c5b5d6845e0de8335c9d0c46552ad8b7db/scripts/install_cli.sh \
           | VERSION="$GDAM_INSTALL_VERSION" INSTALL_DIR="$dest" sh
 
         echo "$dest" >> "$GITHUB_PATH"
