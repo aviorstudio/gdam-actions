@@ -36,19 +36,19 @@ checksum verification remains part of that pinned script.
 ## Publish to GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@<release-from-gdam-be-78>
+- uses: aviorstudio/gdam-actions/install@v0.0.2
   with:
-    version: <cli-release-from-gdam-be-80>
+    version: v0.0.8
 
-- uses: aviorstudio/gdam-actions/publish@<release-from-gdam-be-78>
+- uses: aviorstudio/gdam-actions/publish@v0.0.2
   with:
     tag: ${{ steps.release.outputs.tag }}
     secret-key: ${{ secrets.GDAM_SECRET_KEY }}
 ```
 
-The release placeholders are intentional: the compatible CLI and action
-releases do not exist yet. Do not replace them with `v0.0.7` and `v0.0.1`;
-those public releases implement the old contract described below.
+`v0.0.2` is the first action release for the exact-tag contract and requires
+GDAM CLI v0.0.8 or newer. The public action release `v0.0.1` and CLI release
+v0.0.7 implement the old contract described below.
 
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
@@ -67,19 +67,14 @@ rather than failing with "gdam: command not found".
 
 ### Coordinated release compatibility
 
-The public `gdam` CLI release is currently **v0.0.7**, whose publish command is
-the old `VERSION RELEASE_TAG` form. The exact-tag command is merged on
-`gdam/main` but is not a public CLI release yet; its release is tracked by
-[gdam-be#80](https://github.com/aviorstudio/gdam-be/issues/80). This action
-fails closed with a specific compatibility message when it detects v0.0.7 (or
-an unknown command shape), before publishing or making a registry request.
+The public `gdam` CLI release **v0.0.8** provides the exact-tag publish command.
+This action fails closed with a specific compatibility message when it detects
+the old v0.0.7 `VERSION RELEASE_TAG` command (or an unknown command shape),
+before publishing or making a registry request.
 
-The only public action release, `v0.0.1`, remains on the old two-identity
-contract. This source change does not alter that tag and does not claim that it
-supports exact tags. After #80 publishes the matching CLI, gdam-actions release
-[#78](https://github.com/aviorstudio/gdam-be/issues/78) can expose this new
-contract to consumers. Until then, `gdam-actions/main` is merged source, not a
-released action contract.
+The public action release `v0.0.1` remains on the old two-identity contract.
+This release does not alter that tag or claim that it supports exact tags. Use
+`v0.0.2` with CLI v0.0.8 for the exact-tag contract.
 
 ## Versioning
 
