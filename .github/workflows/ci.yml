@@ -48,6 +48,7 @@ jobs:
         uses: ./install
         with:
           version: v0.0.8
+          archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92' || '' }}
 
       - name: gdam is on PATH and runs
         shell: bash
@@ -99,7 +100,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Exact-tag and immutable-source contract tests
-        run: bash tests/test-contracts.sh
+        run: make test
 
       - name: Create a masked test credential
         id: test-key
