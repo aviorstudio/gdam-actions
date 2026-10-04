@@ -2,6 +2,8 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -91,13 +93,19 @@ jobs:
           [ "$a" = "$b" ] || { echo "v0.0.6 gave '$a' but 0.0.6 gave '$b'" >&2; exit 1; }
 
   publish-guards:
-    name: publish guards
+    name: Test
     runs-on: ubuntu-latest
     # Bounded, so a step that hangs fails here rather than sitting until the
     # runner's own timeout hours later.
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Validate unified workflow contract
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/fleet-workflow-contract"
+          "$RUNNER_TEMP/fleet-workflow-contract/bin/python" -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r .github/workflow-contract-requirements.txt
+          "$RUNNER_TEMP/fleet-workflow-contract/bin/python" .github/workflow_contract.py
 
       - name: Exact-tag and immutable-source contract tests
         run: make test
