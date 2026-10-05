@@ -1,3 +1,5 @@
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: c4e9f30c70ee2001223c75b07b15bb6c7f93ed2c23eafd489c305130d08528cd -->
+
 # gdam-actions
 
 GitHub Actions for [GDAM](https://github.com/aviorstudio/gdam), the Godot Addon
@@ -22,6 +24,7 @@ Pin the version for reproducible runs:
 | ----- | ------- | ------- |
 | `version` | `latest` | Release to install. `0.0.7` and `v0.0.7` are equivalent. |
 | `token` | `${{ github.token }}` | Authenticates the API call that resolves `latest`. The default is almost always right — pass one only if the release lives somewhere the workflow's own token cannot read. |
+| `archive-sha256` | empty | Reviewed archive SHA256; requires an exact release version. |
 | `install-dir` | `$RUNNER_TEMP/gdam-bin` | Where the binary goes. Needs no sudo. |
 
 | Output | Purpose |
@@ -103,7 +106,7 @@ A commit SHA is the immutable option because a tag can be deleted and recreated.
 These actions are pre-1.0 on purpose: while the line is `0.x`, inputs may still
 change between releases. Read the release notes before bumping.
 
-Releases are cut by the [Release workflow](.github/workflows/release.yml) —
+Releases are cut by the [Release workflow](https://github.com/aviorstudio/gdam-actions/blob/39fec1638576d27bd5c1195e7b6117d0a6b4bb3e/.github/workflows/release.yml) —
 `workflow_dispatch` with a `patch`/`minor`/`major` choice. It re-runs CI
 against the commit first, then creates the tag and the release.
 
