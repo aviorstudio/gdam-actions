@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "profile": "configuration",
+  "commands": {
+    "install": [
+      "make",
+      "install"
+    ],
+    "lint": [
+      "make",
+      "lint"
+    ],
+    "test": [
+      "make",
+      "test"
+    ],
+    "check": [
+      "make",
+      "check"
+    ],
+    "clean": [
+      "make",
+      "clean"
+    ],
+    "build": {
+      "unsupported": "Composite action library has no product build or automatic development service; real installer and publication boundaries are verified by make check."
+    },
+    "dev": {
+      "unsupported": "Composite action library has no product build or automatic development service; real installer and publication boundaries are verified by make check."
+    },
+    "stop": {
+      "unsupported": "Composite action library has no product build or automatic development service; real installer and publication boundaries are verified by make check."
+    }
+  }
+}
