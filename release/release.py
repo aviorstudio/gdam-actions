@@ -24,8 +24,10 @@ def main():
         raise ValueError('missing immutable caller source identity')
     if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}', tag) or not re.fullmatch(r'[a-f0-9]{64}', expected):
         raise ValueError('invalid exact tag or tested artifact digest')
-    if not os.environ.get('GDAM_SECRET_KEY') or not os.environ.get('GH_TOKEN'):
-        raise ValueError('publication credentials are required')
+    if not os.environ.get('GH_TOKEN'):
+        raise ValueError('GH_TOKEN is required')
+    if not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL') or not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN'):
+        raise ValueError('registry publication needs the job permission id-token: write')
     root = Path(run('git', 'rev-parse', '--show-toplevel')).resolve()
     if run('git', 'rev-parse', 'HEAD') != sha or run('git', 'status', '--porcelain', '--untracked-files=no'):
         raise ValueError('release checkout differs from its verified source')
@@ -49,12 +51,6 @@ def main():
                 raise ValueError('unsafe ZIP entry')
         if archive.testzip() is not None:
             raise ValueError('corrupt ZIP entry')
-    # Fail before creating a public release if the installed CLI cannot accept
-    # the exact tag. The compatibility probe never receives either credential.
-    probe_env = {k: v for k, v in os.environ.items() if k not in {'GDAM_SECRET_KEY', 'GH_TOKEN', 'GITHUB_TOKEN'}}
-    probe = subprocess.run(['gdam', 'publish'], env=probe_env, capture_output=True, text=True)
-    if 'usage: gdam publish @username/addon TAG [ASSET_NAME]' not in probe.stdout+probe.stderr:
-        raise ValueError('installed GDAM CLI lacks the exact-tag publication contract')
     subprocess.run(['gh', 'release', 'create', tag, str(asset), '--repo', repo, '--target', sha,
                     '--title', tag, '--notes', 'Release '+tag], check=True)
     # Recheck bytes after upload and before registry publication. The caller's
@@ -65,10 +61,10 @@ def main():
     assets = [entry for entry in published.get('assets', []) if entry.get('name') == asset.name]
     if published.get('tag_name') != tag or len(assets) != 1 or assets[0].get('digest') != 'sha256:'+expected:
         raise ValueError('GitHub release asset differs from the tested ZIP')
+    # The registry publication re-reads the release it just created, hashes
+    # the uploaded bytes again and attests them with the job's OIDC token.
     environment = {**os.environ, 'GDAM_PUBLISH_TAG': tag, 'GDAM_PUBLISH_ASSET': asset.name}
-    environment.pop('GH_TOKEN', None)
-    environment.pop('GITHUB_TOKEN', None)
-    subprocess.run(['bash', str(Path(__file__).resolve().parents[1]/'publish/publish.sh')], env=environment, check=True)
+    subprocess.run(['python3', str(Path(__file__).resolve().parents[1]/'publish/publish.py')], env=environment, check=True)
 
 
 if __name__ == '__main__':

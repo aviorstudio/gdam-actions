@@ -24,11 +24,10 @@ permissions:
 #   express a matrix, and collapsing this to one runner would silently drop the
 #   macOS coverage that nothing else provides.
 #
-#   `publish-guards` asserts that publish FAILS when gdam is not installed, and
-#   only afterwards runs ./install. It needs a machine where the CLI is absent.
-#   Merged into a job that has already installed it, that assertion would pass
-#   for the wrong reason -- or rather, fail, which is worse: the guard would be
-#   reported broken when it is the test that had been invalidated.
+#   `publish-guards` asserts that publish FAILS closed for a missing release
+#   and for a job without id-token: write. It needs its own permissions block
+#   (the token request is part of what it exercises) and the loopback registry
+#   fixtures from make test, neither of which belongs in the install matrix.
 jobs:
   install:
     name: install (${{ matrix.os }})
@@ -102,6 +101,11 @@ jobs:
     # Bounded, so a step that hangs fails here rather than sitting until the
     # runner's own timeout hours later.
     timeout-minutes: 20
+    permissions:
+      contents: read
+      # Publishing is trusted publishing: the guard below requests a real
+      # GitHub Actions OIDC token exactly as a consumer's release job does.
+      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate unified workflow contract
@@ -111,45 +115,36 @@ jobs:
           "$RUNNER_TEMP/fleet-workflow-contract/bin/python" -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r .github/workflow-contract-requirements.txt
           "$RUNNER_TEMP/fleet-workflow-contract/bin/python" .github/workflow_contract.py
 
-      - name: Exact-tag and immutable-source contract tests
+      - name: Trusted-publishing and immutable-source contract tests
         run: make test
 
-      - name: Create a masked test credential
-        id: test-key
-        shell: bash
-        run: |
-          value="$(openssl rand -hex 16)"
-          echo "::add-mask::$value"
-          echo "value=$value" >> "$GITHUB_OUTPUT"
-
-      # The two ways publish is misused. Both should fail with a message that
-      # names the cause, which is the whole reason the guards exist.
-      - name: Fails when gdam is not installed
-        id: no-cli
+      # The ways publish is misused. Each should fail with a message that
+      # names the cause, which is the whole reason the guards exist. The job
+      # holds id-token: write so the guard exercises the real OIDC plumbing
+      # up to the point where the release lookup fails; nothing is minted or
+      # sent to the registry for a release that does not exist.
+      - name: Fails when the release does not exist
+        id: no-release
         continue-on-error: true
         uses: ./publish
         with:
           tag: 'Release-V1.2.3'
-          secret-key: ${{ steps.test-key.outputs.value }}
 
       - name: That failure was expected
         shell: bash
         run: |
-          [ "${{ steps.no-cli.outcome }}" = "failure" ] \
-            || { echo 'publish should fail when gdam is missing' >&2; exit 1; }
+          [ "${{ steps.no-release.outcome }}" = "failure" ] \
+            || { echo 'publish should fail when the release tag does not exist' >&2; exit 1; }
 
-      - uses: ./install
-
-      - name: Fails when the secret is empty
-        id: no-key
-        continue-on-error: true
-        uses: ./publish
-        with:
-          tag: 'Release-V1.2.3'
-          secret-key: ''
-
-      - name: That failure was expected too
+      - name: Fails without an OIDC token
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GDAM_PUBLISH_TAG: 'Release-V1.2.3'
         run: |
-          [ "${{ steps.no-key.outcome }}" = "failure" ] \
-            || { echo 'publish should fail when the secret key is empty' >&2; exit 1; }
+          set -euo pipefail
+          if env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+              python3 publish/publish.py >"$RUNNER_TEMP/no-token.out" 2>"$RUNNER_TEMP/no-token.err"; then
+            echo 'publish should fail when the job lacks id-token: write' >&2; exit 1
+          fi
+          grep -F 'id-token: write' "$RUNNER_TEMP/no-token.err"
