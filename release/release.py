@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Publish a same-job verified ZIP without rewriting tags or trusting cached tests."""
 import hashlib
+import json
 import os
 from pathlib import Path, PurePosixPath
 import re
@@ -60,6 +61,10 @@ def main():
     # package verifier owns the closed product-specific inventory.
     if hashlib.sha256(asset.read_bytes()).hexdigest() != expected:
         raise ValueError('ZIP changed during GitHub publication')
+    published = json.loads(run('gh', 'api', f'repos/{repo}/releases/tags/{tag}'))
+    assets = [entry for entry in published.get('assets', []) if entry.get('name') == asset.name]
+    if published.get('tag_name') != tag or len(assets) != 1 or assets[0].get('digest') != 'sha256:'+expected:
+        raise ValueError('GitHub release asset differs from the tested ZIP')
     environment = {**os.environ, 'GDAM_PUBLISH_TAG': tag, 'GDAM_PUBLISH_ASSET': asset.name}
     environment.pop('GH_TOKEN', None)
     environment.pop('GITHUB_TOKEN', None)
