@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 694b88b39eb1ad4c2e7b2e4868c78f423cdf7ae97352b7318aa20b3a920a9637 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 53af28cbbfb2efa22aff48d41f1f939f1c9fd5500644c78252580ff66865a227 -->
 
 # gdam-actions
 
@@ -9,20 +9,20 @@ shared by every repository that needs either.
 ## Install GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.0.1
+- uses: aviorstudio/gdam-actions/install@v0.3.0
 ```
 
 Pin the version for reproducible runs:
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.0.1
+- uses: aviorstudio/gdam-actions/install@v0.3.0
   with:
-    version: v0.0.7
+    version: v0.0.8
 ```
 
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
-| `version` | `latest` | Release to install. `0.0.7` and `v0.0.7` are equivalent. |
+| `version` | `latest` | Release to install. `0.0.8` and `v0.0.8` are equivalent. |
 | `token` | `${{ github.token }}` | Authenticates the API call that resolves `latest`. The default is almost always right — pass one only if the release lives somewhere the workflow's own token cannot read. |
 | `archive-sha256` | empty | Reviewed archive SHA256; requires an exact release version. |
 | `install-dir` | `$RUNNER_TEMP/gdam-bin` | Where the binary goes. Needs no sudo. |
@@ -117,7 +117,7 @@ Every release has its own tag, and repository policy is never to move one. Pin
 one:
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.0.1
+- uses: aviorstudio/gdam-actions/install@v0.3.0
 ```
 
 **Correction:** earlier documentation called those tags immutable. Git tags can
@@ -138,7 +138,7 @@ A commit SHA is the immutable option because a tag can be deleted and recreated.
 These actions are pre-1.0 on purpose: while the line is `0.x`, inputs may still
 change between releases. Read the release notes before bumping.
 
-Releases are cut by the [Release workflow](https://github.com/aviorstudio/gdam-actions/blob/39fec1638576d27bd5c1195e7b6117d0a6b4bb3e/.github/workflows/release.yml) —
+Releases are cut by the [Release workflow](https://github.com/aviorstudio/gdam-actions/blob/3d9591c34711bb408302866d1e213409c2bdc59a/.github/workflows/release.yml) —
 `workflow_dispatch` with a `patch`/`minor`/`major` choice. It re-runs CI
 against the commit first, then creates the tag and the release.
 
