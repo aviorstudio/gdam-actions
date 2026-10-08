@@ -14,9 +14,10 @@ install:
 	@command -v bash >/dev/null && command -v python3 >/dev/null
 lint:
 	bash -n tests/test-contracts.sh
-	python3 -c 'import ast; from pathlib import Path; ast.parse(Path("release/release.py").read_text())'
+	python3 -c 'import ast; from pathlib import Path; [ast.parse(Path(p).read_text()) for p in ("release/release.py", "publish/publish.py")]'
 unit:
 	bash tests/test-contracts.sh
+	python3 -m unittest discover -s tests -p 'test_publish.py' -v
 	python3 -m unittest discover -s tests -p 'test_release.py' -v
 integration:
 	python3 -m unittest discover -s tests -p 'test_installer.py' -v

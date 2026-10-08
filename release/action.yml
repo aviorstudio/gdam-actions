@@ -1,5 +1,5 @@
 name: Publish tested addon release
-description: Publish the exact verified ZIP to GitHub before registering its exact tag with GDAM
+description: Publish the exact verified ZIP to GitHub before registering its exact tag with GDAM by trusted publishing; the job needs contents write and id-token write
 inputs:
   tag:
     description: Exact case-sensitive release tag already checked against addon metadata
@@ -14,9 +14,10 @@ inputs:
     description: Exact addon spec, or the caller repository by default
     required: false
     default: ''
-  secret-key:
-    description: Owner-scoped GDAM publication credential
-    required: true
+  api-url:
+    description: Registry base URL
+    required: false
+    default: 'https://api.gdam.dev'
 runs:
   using: composite
   steps:
@@ -27,6 +28,6 @@ runs:
         GDAM_RELEASE_ASSET: ${{ inputs.asset }}
         GDAM_RELEASE_SHA256: ${{ inputs.tested-sha256 }}
         GDAM_PUBLISH_ADDON: ${{ inputs.addon }}
-        GDAM_SECRET_KEY: ${{ inputs.secret-key }}
+        GDAM_API_URL: ${{ inputs.api-url }}
         GH_TOKEN: ${{ github.token }}
       run: python3 "$GITHUB_ACTION_PATH/release.py"
