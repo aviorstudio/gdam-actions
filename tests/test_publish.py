@@ -26,7 +26,7 @@ class TrustedPublish(unittest.TestCase):
                     'GITHUB_REPOSITORY': 'aviorstudio/example', 'GITHUB_SHA': COMMIT,
                     'GH_TOKEN': 'fixture-github', 'GDAM_PUBLISH_TAG': 'v1.2.3',
                     'GITHUB_OUTPUT': str(self.output)}
-        for key in ('GDAM_PUBLISH_ADDON', 'GDAM_PUBLISH_ASSET', 'GDAM_OIDC_AUDIENCE'):
+        for key in ('GDAM_PUBLISH_ADDON', 'GDAM_PUBLISH_ASSET', 'GDAM_OIDC_AUDIENCE', 'GDAM_EDITOR_PLUGIN'):
             self.env.pop(key, None)
 
     def invoke(self, **overrides):
@@ -63,6 +63,16 @@ class TrustedPublish(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(self.registry.published()[0]['addon'], 'other-name')
         self.assertIn('audience=registry.example', self.registry.requests[0][1])
+
+    def test_editor_plugin_is_sent_only_when_set(self):
+        for value, expected in [('true', True), ('false', None), ('', None)]:
+            with self.subTest(value=value):
+                result = self.invoke(GDAM_EDITOR_PLUGIN=value)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(self.registry.published()[-1].get('editor_plugin'), expected)
+        result = self.invoke(GDAM_EDITOR_PLUGIN='yes')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertEqual(len(self.registry.published()), 3)
 
     def test_idempotent_repeat_is_success(self):
         self.registry.status = 200

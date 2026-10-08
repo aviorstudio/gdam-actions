@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 7c77b9403965ddd09569bc63a18bf0dd12b08f230f9b75c643dd09240f431775 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 694b88b39eb1ad4c2e7b2e4868c78f423cdf7ae97352b7318aa20b3a920a9637 -->
 
 # gdam-actions
 
@@ -66,6 +66,7 @@ publish, and `install` is unchanged.
 | `asset` | automatic | Exact asset name. Omit when the release has exactly one asset or one named `@<owner>_<addon>.gdam.zip`. |
 | `api-url` | `https://api.gdam.dev` | Registry base URL. |
 | `audience` | `api.gdam.dev` | OIDC token audience the registry expects. |
+| `editor-plugin` | empty | `true` marks the addon as an editor plugin; the registry records it only when this publish creates the addon. |
 | `token` | `${{ github.token }}` | Reads the release and downloads the asset for hashing. |
 
 | Output | Purpose |
