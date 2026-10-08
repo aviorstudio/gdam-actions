@@ -1,5 +1,8 @@
 name: 'Publish to GDAM'
-description: 'Publish an addon release to the gdam registry'
+description: >-
+  Register an existing GitHub Release with the gdam registry by trusted
+  publishing (GitHub Actions OIDC). The calling job needs
+  `permissions: id-token: write` and `contents: read`.
 
 inputs:
   tag:
@@ -8,28 +11,51 @@ inputs:
   addon:
     description: >-
       Addon spec, e.g. @aviorstudio/gd-router. Defaults to @<owner>/<repo> for
-      the repository running the workflow.
+      the repository running the workflow. The registry only accepts the
+      owner that matches the workflow's GitHub organisation.
     required: false
     default: ''
   asset:
     description: >-
-      Exact release asset name. Optional when the release has exactly one asset.
+      Exact release asset name. Optional when the release has exactly one
+      asset or one named @<owner>_<addon>.gdam.zip.
     required: false
     default: ''
-  secret-key:
+  api-url:
+    description: 'Registry base URL'
+    required: false
+    default: 'https://api.gdam.dev'
+  audience:
+    description: 'OIDC token audience the registry expects'
+    required: false
+    default: 'api.gdam.dev'
+  token:
     description: >-
-      GDAM secret key, scoped to the owner. Pass secrets.GDAM_SECRET_KEY; it is
-      never echoed.
-    required: true
+      GitHub token used to read the release and download the asset for
+      hashing. The workflow's own token is right unless the release lives in
+      another repository.
+    required: false
+    default: ${{ github.token }}
+
+outputs:
+  created:
+    description: 'true when the registry recorded a new release row, false when it already held identical facts'
+    value: ${{ steps.publish.outputs.created }}
+  sha256:
+    description: 'SHA256 of the published asset bytes'
+    value: ${{ steps.publish.outputs.sha256 }}
 
 runs:
   using: 'composite'
   steps:
     - name: Publish to GDAM
+      id: publish
       shell: bash
       env:
-        GDAM_SECRET_KEY: ${{ inputs.secret-key }}
         GDAM_PUBLISH_TAG: ${{ inputs.tag }}
         GDAM_PUBLISH_ADDON: ${{ inputs.addon }}
         GDAM_PUBLISH_ASSET: ${{ inputs.asset }}
-      run: bash "$GITHUB_ACTION_PATH/publish.sh"
+        GDAM_API_URL: ${{ inputs.api-url }}
+        GDAM_OIDC_AUDIENCE: ${{ inputs.audience }}
+        GH_TOKEN: ${{ inputs.token }}
+      run: python3 "$GITHUB_ACTION_PATH/publish.py"
