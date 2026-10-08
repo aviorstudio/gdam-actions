@@ -30,6 +30,8 @@ class TestedRelease(unittest.TestCase):
 import json,os,sys
 from pathlib import Path
 if sys.argv[1]=='api':
+ if '/releases/tags/' in sys.argv[2]:
+  print(json.dumps({'tag_name':os.environ['GDAM_RELEASE_TAG'],'assets':[{'name':'addon.zip','digest':'sha256:'+os.environ.get('REMOTE_DIGEST',os.environ['GDAM_RELEASE_SHA256'])}]}));sys.exit(0)
  if '/git/ref/' in sys.argv[2]:
   if os.environ.get('EXISTING_TAG'): print('{}');sys.exit(0)
   print('gh: Not Found (HTTP 404)',file=sys.stderr);sys.exit(1)
@@ -84,3 +86,10 @@ with Path(os.environ['COMMAND_LOG']).open('a') as out:out.write(json.dumps(['gda
         self.env['GDAM_RELEASE_SHA256'] = hashlib.sha256(self.asset.read_bytes()).hexdigest()
         self.assertNotEqual(self.invoke().returncode, 0)
         self.assertFalse(self.log.exists())
+
+    def test_remote_asset_mismatch_never_reaches_registry(self):
+        self.env['REMOTE_DIGEST'] = '0'*64
+        self.assertNotEqual(self.invoke().returncode, 0)
+        commands = [json.loads(line) for line in self.log.read_text().splitlines()]
+        self.assertEqual(len(commands), 1)
+        self.assertEqual(commands[0][:3], ['gh','release','create'])
