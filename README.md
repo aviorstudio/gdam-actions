@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: c4e9f30c70ee2001223c75b07b15bb6c7f93ed2c23eafd489c305130d08528cd -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 694b88b39eb1ad4c2e7b2e4868c78f423cdf7ae97352b7318aa20b3a920a9637 -->
 
 # gdam-actions
 
@@ -39,45 +39,77 @@ checksum verification remains part of that pinned script.
 ## Publish to GDAM
 
 ```yaml
-- uses: aviorstudio/gdam-actions/install@v0.0.2
-  with:
-    version: v0.0.8
-
-- uses: aviorstudio/gdam-actions/publish@v0.0.2
-  with:
-    tag: ${{ steps.release.outputs.tag }}
-    secret-key: ${{ secrets.GDAM_SECRET_KEY }}
+jobs:
+  publish:
+    permissions:
+      contents: read   # read the release and its asset
+      id-token: write  # mint the GitHub Actions OIDC token the registry trusts
+    steps:
+      - uses: aviorstudio/gdam-actions/publish@v0.3.0
+        with:
+          tag: ${{ steps.release.outputs.tag }}
 ```
 
-`v0.0.2` is the first action release for the exact-tag contract and requires
-GDAM CLI v0.0.8 or newer. The public action release `v0.0.1` and CLI release
-v0.0.7 implement the old contract described below.
+`v0.3.0` publishes by **trusted publishing**: the action reads the GitHub
+Release named by `tag`, picks one asset, downloads it to hash its bytes, and
+posts the release facts (release id, asset id, name, size, SHA256, target
+commit, `published_at`, `prerelease`) to `POST /api/v1/publish` with the job's
+GitHub Actions OIDC token for audience `api.gdam.dev`. There is no registry
+credential: the registry trusts the token's repository identity. `GDAM_SECRET_KEY`
+and the `secret-key` input are gone, the GDAM CLI is no longer needed to
+publish, and `install` is unchanged.
 
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
 | `tag` | required | Exact, case-sensitive GitHub Release tag, e.g. `v1.2.3`. |
-| `addon` | `@<owner>/<repo>` | Addon spec. |
-| `asset` | automatic | Exact asset name. Omit only when the release has exactly one asset. |
-| `secret-key` | required | Owner-scoped key. Pass `secrets.GDAM_SECRET_KEY`. |
+| `addon` | `@<owner>/<repo>` | Addon spec. The owner must be the workflow's GitHub organisation. |
+| `asset` | automatic | Exact asset name. Omit when the release has exactly one asset or one named `@<owner>_<addon>.gdam.zip`. |
+| `api-url` | `https://api.gdam.dev` | Registry base URL. |
+| `audience` | `api.gdam.dev` | OIDC token audience the registry expects. |
+| `editor-plugin` | empty | `true` marks the addon as an editor plugin; the registry records it only when this publish creates the addon. |
+| `token` | `${{ github.token }}` | Reads the release and downloads the asset for hashing. |
+
+| Output | Purpose |
+| ------ | ------- |
+| `created` | `true` for a new registry row; `false` when the registry already held identical facts (a re-run is idempotent). |
+| `sha256` | SHA256 of the published asset bytes. |
+
+The registry's policy, which the action cannot work around:
+
+- The token's `repository_owner` must equal the addon's owner handle, so
+  `@aviorstudio/*` is published only by workflows of `github.com/aviorstudio/*`.
+  The first publish binds the addon to the workflow's repository; later
+  publishes must come from the same repository.
+- `commit_sha` must equal the commit the workflow checked out (the token's
+  `sha`). The action resolves the tag's commit and fails early, before any token
+  is minted, when it differs from `GITHUB_SHA`. A `workflow_dispatch` from
+  `main` therefore publishes only a release whose tag points at `main`'s head.
+- The run must be a `push`, `release` or `workflow_dispatch` event on a branch
+  or tag ref, never a pull request.
+- A tag already recorded with identical facts answers `200` (success, `created:
+  false`); different facts under the same tag, or the same GitHub release under
+  another tag, answer `409` and the action fails with the registry's message.
+
+If GitHub declares an asset `digest`, it must match the downloaded bytes; a
+mismatch, a size mismatch or a draft release fails before anything is sent.
+The action prints the registry's response and never prints either token.
 
 No separate semantic package version is accepted or sent. Release identity is
 the one exact tag, preserved byte-for-byte; `Release-V1.2.3` and
-`release-v1.2.3` are different tags. If a release has multiple assets, pass the
-exact `asset` selector.
+`release-v1.2.3` are different tags.
 
-Publishing needs the CLI, so run `install` first — `publish` says so plainly
-rather than failing with "gdam: command not found".
+### Release (tested ZIP) action
 
-### Coordinated release compatibility
+`aviorstudio/gdam-actions/release` creates the GitHub Release from a ZIP the
+same job verified and then runs `publish` on it. Its `secret-key` input is
+gone too; the job needs `contents: write` and `id-token: write`.
 
-The public `gdam` CLI release **v0.0.8** provides the exact-tag publish command.
-This action fails closed with a specific compatibility message when it detects
-the old v0.0.7 `VERSION RELEASE_TAG` command (or an unknown command shape),
-before publishing or making a registry request.
+### Earlier releases
 
-The public action release `v0.0.1` remains on the old two-identity contract.
-This release does not alter that tag or claim that it supports exact tags. Use
-`v0.0.2` with CLI v0.0.8 for the exact-tag contract.
+`v0.2.0` and earlier shelled out to `gdam publish` with an owner-scoped
+`secret-key`. The registry no longer fills release facts in from GitHub, so
+those releases (and CLI v0.0.8 `gdam publish`) can no longer publish. Upgrade
+the pin, add `id-token: write`, and delete the `GDAM_SECRET_KEY` secret.
 
 ## Versioning
 

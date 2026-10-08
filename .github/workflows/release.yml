@@ -64,6 +64,9 @@ jobs:
     # what it declares.
     permissions:
       contents: read
+      # CI's publish guard requests an OIDC token; a called workflow cannot
+      # ask for more than its caller grants.
+      id-token: write
 
   release:
     needs: verify

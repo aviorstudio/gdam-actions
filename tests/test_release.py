@@ -7,6 +7,8 @@ import tempfile
 import unittest
 import zipfile
 
+from registry_fixture import Registry, set_release, write_fixture
+
 SCRIPT = Path(__file__).resolve().parents[1]/'release/release.py'
 
 
@@ -23,40 +25,15 @@ class TestedRelease(unittest.TestCase):
         self.asset = self.root/'addon.zip'
         with zipfile.ZipFile(self.asset, 'w') as archive:
             archive.writestr('addon/plugin.cfg', '[plugin]\nversion="1.2.3"\n')
-        binary = self.root/'bin'
-        binary.mkdir()
-        gh = binary/'gh'
-        gh.write_text('''#!/usr/bin/env python3
-import json,os,sys
-from pathlib import Path
-if sys.argv[1]=='api':
- if '/releases/tags/' in sys.argv[2]:
-  print(json.dumps({'tag_name':os.environ['GDAM_RELEASE_TAG'],'assets':[{'name':'addon.zip','digest':'sha256:'+os.environ.get('REMOTE_DIGEST',os.environ['GDAM_RELEASE_SHA256'])}]}));sys.exit(0)
- if '/git/ref/' in sys.argv[2]:
-  if os.environ.get('EXISTING_TAG'): print('{}');sys.exit(0)
-  print('gh: Not Found (HTTP 404)',file=sys.stderr);sys.exit(1)
- print(os.environ['EXPECTED_SHA']);sys.exit(0)
-with Path(os.environ['COMMAND_LOG']).open('a') as out:out.write(json.dumps(['gh']+sys.argv[1:])+'\\n')
-''')
-        cli = binary/'gdam'
-        cli.write_text('''#!/usr/bin/env python3
-import json,os,sys
-from pathlib import Path
-if len(sys.argv)==2:
- assert 'GDAM_SECRET_KEY' not in os.environ
- assert 'GH_TOKEN' not in os.environ
- print('usage: gdam publish @username/addon TAG [ASSET_NAME]');sys.exit(2)
-assert 'GH_TOKEN' not in os.environ
-with Path(os.environ['COMMAND_LOG']).open('a') as out:out.write(json.dumps(['gdam']+sys.argv[1:])+'\\n')
-''')
-        gh.chmod(0o755)
-        cli.chmod(0o755)
+        self.registry = Registry()
+        self.addCleanup(self.registry.close)
+        fixture = write_fixture(self.root, self.asset.read_bytes(), commit=self.sha)
         self.log = self.root/'commands.jsonl'
-        self.env = {**os.environ, 'PATH': str(binary)+':'+os.environ['PATH'], 'GITHUB_REF': 'refs/heads/main',
+        self.env = {**os.environ, **fixture, **self.registry.environment(), 'GITHUB_REF': 'refs/heads/main',
                     'GITHUB_SHA': self.sha, 'EXPECTED_SHA': self.sha, 'GITHUB_REPOSITORY': 'example/addon',
                     'GDAM_RELEASE_TAG': 'v1.2.3', 'GDAM_RELEASE_ASSET': str(self.asset),
                     'GDAM_RELEASE_SHA256': hashlib.sha256(self.asset.read_bytes()).hexdigest(),
-                    'GH_TOKEN': 'fixture-github', 'GDAM_SECRET_KEY': 'fixture-registry', 'COMMAND_LOG': str(self.log)}
+                    'GH_TOKEN': 'fixture-github', 'COMMAND_LOG': str(self.log)}
 
     def invoke(self):
         return subprocess.run(['python3', str(SCRIPT)], cwd=self.root, env=self.env, capture_output=True, text=True)
@@ -67,8 +44,23 @@ with Path(os.environ['COMMAND_LOG']).open('a') as out:out.write(json.dumps(['gda
         commands = [json.loads(line) for line in self.log.read_text().splitlines()]
         self.assertEqual(commands[0][:4], ['gh', 'release', 'create', 'v1.2.3'])
         self.assertIn(self.sha, commands[0])
-        self.assertEqual(commands[1], ['gdam', 'publish', '@example/addon', 'v1.2.3', 'addon.zip'])
-        self.assertNotIn('fixture-registry', result.stdout+result.stderr)
+        self.assertNotIn(['gdam', 'publish', '@example/addon', 'v1.2.3', 'addon.zip'], commands)
+        published = self.registry.published()
+        self.assertEqual(len(published), 1)
+        self.assertEqual(published[0]['owner'], 'example')
+        self.assertEqual(published[0]['addon'], 'addon')
+        self.assertEqual(published[0]['tag_name'], 'v1.2.3')
+        self.assertEqual(published[0]['asset_name'], 'addon.zip')
+        self.assertEqual(published[0]['commit_sha'], self.sha)
+        self.assertEqual(published[0]['sha256'], self.env['GDAM_RELEASE_SHA256'])
+        self.assertNotIn(self.registry.token, result.stdout+result.stderr)
+
+    def test_missing_oidc_permission_rejects_before_github_release(self):
+        self.env.pop('ACTIONS_ID_TOKEN_REQUEST_URL')
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('id-token: write', result.stderr)
+        self.assertFalse(self.log.exists())
 
     def test_changed_source_digest_ref_and_existing_tag_reject_before_publication(self):
         for key, value in [('GITHUB_REF','refs/heads/feature'), ('GITHUB_SHA','a'*40),
@@ -88,8 +80,8 @@ with Path(os.environ['COMMAND_LOG']).open('a') as out:out.write(json.dumps(['gda
         self.assertFalse(self.log.exists())
 
     def test_remote_asset_mismatch_never_reaches_registry(self):
-        self.env['REMOTE_DIGEST'] = '0'*64
+        set_release(self.env, assets=[{'id': 1, 'name': 'addon.zip', 'size': 3, 'digest': 'sha256:'+'0'*64}])
         self.assertNotEqual(self.invoke().returncode, 0)
         commands = [json.loads(line) for line in self.log.read_text().splitlines()]
-        self.assertEqual(len(commands), 1)
         self.assertEqual(commands[0][:3], ['gh','release','create'])
+        self.assertEqual(self.registry.requests, [])
