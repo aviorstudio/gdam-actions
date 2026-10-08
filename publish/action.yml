@@ -29,6 +29,12 @@ inputs:
     description: 'OIDC token audience the registry expects'
     required: false
     default: 'api.gdam.dev'
+  editor-plugin:
+    description: >-
+      Set to "true" when the addon is an editor plugin. The registry records
+      this only when this publish creates the addon; later publishes ignore it.
+    required: false
+    default: ''
   token:
     description: >-
       GitHub token used to read the release and download the asset for
@@ -57,5 +63,6 @@ runs:
         GDAM_PUBLISH_ASSET: ${{ inputs.asset }}
         GDAM_API_URL: ${{ inputs.api-url }}
         GDAM_OIDC_AUDIENCE: ${{ inputs.audience }}
+        GDAM_EDITOR_PLUGIN: ${{ inputs.editor-plugin }}
         GH_TOKEN: ${{ inputs.token }}
       run: python3 "$GITHUB_ACTION_PATH/publish.py"

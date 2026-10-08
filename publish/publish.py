@@ -157,6 +157,13 @@ def main():
         'asset_size': asset['size'], 'published_at': release['published_at'],
         'prerelease': bool(release.get('prerelease', False)),
     }
+    editor = os.environ.get('GDAM_EDITOR_PLUGIN', '').strip().lower()
+    if editor not in ('', 'false', 'true'):
+        raise PublishError(f'editor-plugin must be true or false, got {editor!r}')
+    if editor == 'true':
+        # Only meaningful when this publish creates the addon; omitted
+        # otherwise so the payload stays identical for existing addons.
+        body['editor_plugin'] = True
     print(f'Publishing @{owner}/{addon} {tag}: release {body["github_release_id"]}, '
           f'asset {asset["name"]} ({asset["id"]}, {asset["size"]} bytes, sha256:{sha256}), commit {commit}')
     token = oidc_token(audience)
