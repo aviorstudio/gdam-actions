@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: bf0c61c4ceda0d7ae968e350e44ce35816dceb4dcbdd838477a383ec4aed7a2d -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: b7443be3ca9c1c29a4374998e4f9b8e952b3446e997714d9876af245f1d66250 -->
 
 # gdam-actions
 
@@ -19,6 +19,14 @@ Pin the version for reproducible runs:
   with:
     version: v0.0.8
 ```
+
+
+For retries of older releases or existing addons published with a user credential,
+pass `api-key: ${{ secrets.GDAM_API_KEY }}` to `publish` or `release`. Create that scoped Clerk
+key through the GDAM app. The action sends it as a Bearer credential and verifies
+the release asset bytes before publishing. This path does not require OIDC
+permissions or a matching workflow commit; the key's current owner permissions
+are checked by the registry. The old `secret-key` input is unsupported. This mode publishes existing addons only.
 
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
@@ -60,6 +68,7 @@ publish, and `install` is unchanged.
 
 | Input | Default | Purpose |
 | ----- | ------- | ------- |
+| `api-key` | empty | Optional scoped Clerk key; omitting it selects GitHub OIDC. |
 | `tag` | required | Exact, case-sensitive GitHub Release tag, e.g. `v1.2.3`. |
 | `addon` | `@<owner>/<repo>` | Addon spec. The owner must be the workflow's GitHub organisation. |
 | `asset` | automatic | Exact asset name. Omit when the release has exactly one asset or one named `@<owner>_<addon>.gdam.zip`. |
@@ -73,7 +82,7 @@ publish, and `install` is unchanged.
 | `created` | `true` for a new registry row; `false` when the registry already held identical facts (a re-run is idempotent). |
 | `sha256` | SHA256 of the published asset bytes. |
 
-The registry's policy, which the action cannot work around:
+With OIDC, the registry enforces the following workflow identity policy:
 
 - The token's `repository_owner` must equal the addon's owner handle, so
   `@aviorstudio/*` is published only by workflows of `github.com/aviorstudio/*`.
@@ -168,10 +177,3 @@ against the commit first, then creates the tag and the release.
 ## License
 
 MIT
-
-For retries of older releases or existing addons published with a user credential,
-pass `api-key: ${{ secrets.GDAM_API_KEY }}` to `publish`. Create that scoped Clerk
-key through the GDAM app. The action sends it as a Bearer credential and verifies
-the release asset bytes before publishing. This path does not require OIDC
-permissions or a matching workflow commit; the key's current owner permissions
-are checked by the registry. The old `secret-key` input is unsupported.
