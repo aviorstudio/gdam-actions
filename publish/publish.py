@@ -8,6 +8,7 @@ posts them with the job's GitHub Actions OIDC token. No GDAM credential exists
 any more: the registry trusts the token's repository identity.
 """
 import hashlib
+import io
 import json
 import os
 import re
@@ -16,6 +17,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 
 DEFAULT_API = 'https://api.gdam.dev'
 DEFAULT_AUDIENCE = 'api.gdam.dev'
@@ -23,6 +25,9 @@ TAG = re.compile(r'[A-Za-z0-9][A-Za-z0-9._-]{0,127}')
 ADDON = re.compile(r'@?([A-Za-z0-9][A-Za-z0-9_.-]*)/([A-Za-z0-9][A-Za-z0-9_.-]*)')
 DIGEST = re.compile(r'sha256:([0-9a-f]{64})')
 COMMIT = re.compile(r'[0-9a-f]{40}')
+DEPENDENCY = re.compile(r'@[A-Za-z0-9][A-Za-z0-9_.-]*/[A-Za-z0-9][A-Za-z0-9_.-]*')
+CLASS_NAME = re.compile(r'^\s*class_name\s+([A-Za-z_][A-Za-z0-9_]*)', re.MULTILINE)
+ADDON_PATH = re.compile(r'res://addons/(@[^/"\'\s]+)/')
 
 
 class PublishError(Exception):
@@ -78,7 +83,75 @@ def asset_digest(repository, asset, declared):
     computed = hashlib.sha256(body).hexdigest()
     if declared is not None and DIGEST.fullmatch(declared).group(1) != computed:
         raise PublishError(f'GitHub declares digest {declared} but the asset bytes hash to sha256:{computed}')
-    return computed
+    return computed, body
+
+
+def declaration(body, owner, addon):
+    """Read what the asset declares: its root gdam.json dependencies and the
+    class_name identifiers its scripts register. The registry stores both and
+    refuses a dependency it cannot honour; the lints here fail before any
+    token is minted, on the exact bytes that were hashed.
+
+    An addon reaches a dependency only through the .gdam/deps.gd that
+    `gdam install` generates, never by a res://addons/... path, because the
+    dependency's address differs between a hoisted and a nested install. So a
+    reference to another addon's directory is an error, and so is shipping a
+    generated .gdam/ directory or a lock in the asset.
+    """
+    try:
+        archive = zipfile.ZipFile(io.BytesIO(body))
+    except zipfile.BadZipFile:
+        raise PublishError('the release asset is not a zip archive') from None
+    entries = [entry.filename.lstrip('/') for entry in archive.infolist() if not entry.is_dir()]
+    # gdam installs the archive root, or the single top-level directory
+    # when every entry sits under one; mirror that so the lints and the
+    # declaration read the files gdam will install.
+    tops = {name.split('/', 1)[0] for name in entries}
+    prefix = ''
+    if len(tops) == 1 and all('/' in name for name in entries):
+        prefix = tops.pop() + '/'
+    names = [name[len(prefix):] for name in entries if name.startswith(prefix)]
+    if 'plugin.cfg' not in names:
+        raise PublishError('the release asset has no plugin.cfg at its root')
+    for name in names:
+        parts = name.split('/')
+        if '.gdam' in parts:
+            raise PublishError(f'the release asset ships generated content: {name} (exclude .gdam/ when packaging)')
+        if parts[-1] == 'gdam.lock':
+            raise PublishError(f'the release asset ships a lock file: {name}')
+    dependencies = {}
+    if 'gdam.json' in names:
+        try:
+            manifest = json.loads(archive.read(prefix + 'gdam.json').decode('utf-8'))
+        except (ValueError, UnicodeDecodeError) as error:
+            raise PublishError(f'gdam.json in the release asset is not valid JSON: {error}') from None
+        addons = manifest.get('addons') if isinstance(manifest, dict) else None
+        if not isinstance(addons, dict) or set(manifest) - {'addons'}:
+            raise PublishError('gdam.json in the release asset must hold only an "addons" object')
+        for name, entry in addons.items():
+            tag = entry.get('tag') if isinstance(entry, dict) else None
+            if not DEPENDENCY.fullmatch(name) or set(entry) - {'tag'}:
+                raise PublishError(f'gdam.json in the release asset: dependency {name!r} must be "@owner/addon": {{"tag": "<exact tag>"}}')
+            if not isinstance(tag, str) or not TAG.fullmatch(tag):
+                raise PublishError(f'gdam.json in the release asset: dependency {name} needs an exact tag')
+            if name == f'@{owner}/{addon}':
+                raise PublishError(f'gdam.json in the release asset: {name} cannot depend on itself')
+            dependencies[name] = tag
+    classes = []
+    self_dir = f'@{owner}_{addon}'
+    for name in names:
+        if not name.endswith('.gd'):
+            continue
+        source = archive.read(prefix + name).decode('utf-8', errors='replace')
+        for match in CLASS_NAME.finditer(source):
+            if match.group(1) not in classes:
+                classes.append(match.group(1))
+        for directory in sorted(set(ADDON_PATH.findall(source))):
+            if directory == self_dir:
+                continue
+            raise PublishError(f'{name} refers to res://addons/{directory}/ directly; declare the addon in gdam.json '
+                               'and reach it through .gdam/deps.gd, which gdam install generates')
+    return dependencies, classes
 
 
 def tag_commit(repository, tag):
@@ -144,7 +217,9 @@ def main():
 
     conventional = f'@{owner}_{addon}.gdam.zip'
     release, asset, declared = release_facts(repository, tag, os.environ.get('GDAM_PUBLISH_ASSET', ''), conventional)
-    sha256 = asset_digest(repository, asset, declared)
+    sha256, body_bytes = asset_digest(repository, asset, declared)
+    dependencies, classes = declaration(body_bytes, owner, addon)
+    del body_bytes
     commit = tag_commit(repository, tag)
     run_sha = os.environ.get('GITHUB_SHA', '')
     if run_sha and run_sha != commit:
@@ -156,6 +231,7 @@ def main():
         'asset_id': asset['id'], 'asset_name': asset['name'], 'sha256': sha256,
         'asset_size': asset['size'], 'published_at': release['published_at'],
         'prerelease': bool(release.get('prerelease', False)),
+        'dependencies': dependencies, 'global_classes': classes,
     }
     editor = os.environ.get('GDAM_EDITOR_PLUGIN', '').strip().lower()
     if editor not in ('', 'false', 'true'):
@@ -166,6 +242,10 @@ def main():
         body['editor_plugin'] = True
     print(f'Publishing @{owner}/{addon} {tag}: release {body["github_release_id"]}, '
           f'asset {asset["name"]} ({asset["id"]}, {asset["size"]} bytes, sha256:{sha256}), commit {commit}')
+    if dependencies:
+        print('Declares dependencies: ' + ', '.join(f'{name}@{tag}' for name, tag in sorted(dependencies.items())))
+    if classes:
+        print('Declares global classes: ' + ', '.join(classes) + ' (this release cannot be a dependency of another addon)')
     token = oidc_token(audience)
     status, text = http('POST', api + '/api/v1/publish',
                         {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json',

@@ -1,16 +1,30 @@
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+import zipfile
 
 from registry_fixture import Registry, set_release, write_fixture
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'publish/publish.py'
-ASSET = b'PK\x03\x04 exact tested bytes'
 COMMIT = 'f1cd4bf5e465d40bae2cf432266f9872810e1ce5'
+
+
+def asset_zip(files=None):
+    """A release asset: plugin.cfg at the root plus the given files, as exact bytes."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, 'w', zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr('plugin.cfg', '[plugin]\nname="Example"\n')
+        for name, body in (files or {}).items():
+            archive.writestr(name, body)
+    return buffer.getvalue()
+
+
+ASSET = asset_zip()
 
 
 class TrustedPublish(unittest.TestCase):
@@ -46,7 +60,8 @@ class TrustedPublish(unittest.TestCase):
             'github_release_id': 406463606, 'commit_sha': COMMIT,
             'asset_id': 620869436, 'asset_name': 'addon.zip',
             'sha256': hashlib.sha256(ASSET).hexdigest(), 'asset_size': len(ASSET),
-            'published_at': '2026-10-08T05:47:02Z', 'prerelease': False}])
+            'published_at': '2026-10-08T05:47:02Z', 'prerelease': False,
+            'dependencies': {}, 'global_classes': []}])
         token_request = [r for r in self.registry.requests if r[0] == 'GET'][0]
         self.assertEqual(token_request[1], '/token?api-version=2&audience=api.gdam.dev')
         publish = [r for r in self.registry.requests if r[0] == 'POST'][0]
@@ -155,6 +170,66 @@ class TrustedPublish(unittest.TestCase):
                 result = self.invoke(**overrides)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertEqual(self.registry.requests, [])
+
+
+    def republish(self, files, **overrides):
+        """Swap the fixture's asset for one with these files and publish."""
+        body = asset_zip(files)
+        Path(self.fixture['FAKE_ASSET']).write_bytes(body)
+        release = json.loads(Path(self.fixture['FAKE_RELEASE']).read_text())
+        asset = {**release['assets'][0], 'size': len(body), 'digest': 'sha256:' + hashlib.sha256(body).hexdigest()}
+        set_release(self.fixture, assets=[asset])
+        return self.invoke(**overrides)
+
+    def test_declaration_is_read_from_the_hashed_asset(self):
+        result = self.republish({
+            'gdam.json': json.dumps({'addons': {'@aviorstudio/gd-session': {'tag': 'v0.0.1'}}}),
+            'src/clerk.gd': 'class_name GdClerk\nextends RefCounted\nconst Deps = preload("../.gdam/deps.gd")\n',
+            'src/self.gd': 'const Own = preload("res://addons/@aviorstudio_example/src/clerk.gd")\n',
+        })
+        self.assertEqual(result.returncode, 0, result.stderr)
+        published = self.registry.published()[-1]
+        self.assertEqual(published['dependencies'], {'@aviorstudio/gd-session': 'v0.0.1'})
+        self.assertEqual(published['global_classes'], ['GdClerk'])
+        self.assertIn('Declares dependencies: @aviorstudio/gd-session@v0.0.1', result.stdout)
+        self.assertIn('Declares global classes: GdClerk', result.stdout)
+
+    def test_declaration_lints_fail_before_any_token(self):
+        cases = [
+            ({'src/a.gd': 'const X = preload("res://addons/@aviorstudio_gd-session/src/x.gd")\n'}, 'reach it through .gdam/deps.gd'),
+            ({'.gdam/deps.gd': '# generated\n'}, 'ships generated content'),
+            ({'gdam.lock': '{}'}, 'ships a lock file'),
+            ({'gdam.json': '{"addons": {"gd-session": {"tag": "v1"}}}'}, 'must be "@owner/addon"'),
+            ({'gdam.json': '{"addons": {"@aviorstudio/gd-session": {"tag": ""}}}'}, 'needs an exact tag'),
+            ({'gdam.json': '{"addons": {"@aviorstudio/example": {"tag": "v1"}}}'}, 'cannot depend on itself'),
+            ({'gdam.json': '{"addons": {}, "package": "addon"}'}, 'must hold only an "addons" object'),
+            ({'gdam.json': 'not json'}, 'not valid JSON'),
+        ]
+        for files, message in cases:
+            with self.subTest(message=message):
+                before = len(self.registry.requests)
+                result = self.republish(files)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn(message, result.stderr)
+                self.assertEqual(len(self.registry.requests), before, 'a lint failure must not mint a token')
+
+    def test_asset_must_be_a_zip_with_plugin_cfg(self):
+        Path(self.fixture['FAKE_ASSET']).write_bytes(b'not a zip')
+        release = json.loads(Path(self.fixture['FAKE_RELEASE']).read_text())
+        asset = {**release['assets'][0], 'size': 9, 'digest': 'sha256:' + hashlib.sha256(b'not a zip').hexdigest()}
+        set_release(self.fixture, assets=[asset])
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('not a zip archive', result.stderr)
+        buffer = io.BytesIO()
+        with zipfile.ZipFile(buffer, 'w') as archive:
+            archive.writestr('src/only.gd', 'extends Node\n')
+        Path(self.fixture['FAKE_ASSET']).write_bytes(buffer.getvalue())
+        set_release(self.fixture, assets=[{**asset, 'size': len(buffer.getvalue()), 'digest': 'sha256:' + hashlib.sha256(buffer.getvalue()).hexdigest()}])
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('no plugin.cfg at its root', result.stderr)
+        self.assertEqual(self.registry.requests, [])
 
 
 if __name__ == '__main__':
