@@ -4,8 +4,7 @@
 The registry no longer reads GitHub itself. This script reads the release the
 caller already created, collects the facts the registry stores (release id,
 asset id, name, size, digest, target commit, published time, prerelease) and
-posts them with the job's GitHub Actions OIDC token. No GDAM credential exists
-any more: the registry trusts the token's repository identity.
+posts them with a scoped Clerk key or the job's GitHub Actions OIDC token.
 """
 import hashlib
 import io
@@ -209,9 +208,12 @@ def main():
         raise PublishError('api-url must be https')
     if not os.environ.get('GH_TOKEN') and not os.environ.get('GITHUB_TOKEN'):
         raise PublishError('GH_TOKEN is required to read the GitHub release')
+    api_key = os.environ.get('GDAM_API_KEY', '').strip()
+    if api_key and not re.fullmatch(r'ak_[A-Za-z0-9_-]{20,512}', api_key):
+        raise PublishError('api-key must be a Clerk publishing key')
     # Check the token plumbing before touching GitHub so a missing permission
     # reads as what it is rather than as a registry rejection later.
-    if not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL') or not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN'):
+    if not api_key and (not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL') or not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN')):
         raise PublishError('no GitHub Actions OIDC token is available: the job needs '
                            '`permissions: id-token: write` (and contents: read)')
 
@@ -222,7 +224,7 @@ def main():
     del body_bytes
     commit = tag_commit(repository, tag)
     run_sha = os.environ.get('GITHUB_SHA', '')
-    if run_sha and run_sha != commit:
+    if not api_key and run_sha and run_sha != commit:
         raise PublishError(f'tag {tag} points at {commit} but this workflow runs on {run_sha}; '
                            'the registry only accepts a release of the commit the publishing workflow checked out')
     body = {
@@ -252,12 +254,13 @@ def main():
         print('Declares dependencies: ' + ', '.join(f'{name}@{tag}' for name, tag in sorted(dependencies.items())))
     if classes:
         print('Declares global classes: ' + ', '.join(classes) + ' (this release cannot be a dependency of another addon)')
-    token = oidc_token(audience)
+    token = api_key or oidc_token(audience)
     status, text = http('POST', api + '/api/v1/publish',
                         {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json',
                          'Accept': 'application/json'},
                         json.dumps(body).encode())
-    del token
+    if token:
+        text = text.replace(token, '[redacted]')
     print(f'Registry answered HTTP {status}: {text}')
     if status not in (200, 201):
         raise PublishError(f'registry rejected the publication with HTTP {status}')

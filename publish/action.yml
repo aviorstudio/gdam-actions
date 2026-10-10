@@ -1,10 +1,13 @@
 name: 'Publish to GDAM'
 description: >-
-  Register an existing GitHub Release with the gdam registry by trusted
-  publishing (GitHub Actions OIDC). The calling job needs
-  `permissions: id-token: write` and `contents: read`.
+  Register an existing GitHub Release using GitHub Actions OIDC or a scoped
+  Clerk publishing key. OIDC requires `permissions: id-token: write`.
 
 inputs:
+  api-key:
+    description: Optional Clerk publishing key for existing addons, including retries of older releases
+    required: false
+    default: ''
   tag:
     description: 'Exact, case-sensitive GitHub Release tag, e.g. v1.2.3'
     required: true
@@ -58,6 +61,7 @@ runs:
       id: publish
       shell: bash
       env:
+        GDAM_API_KEY: ${{ inputs.api-key }}
         GDAM_PUBLISH_TAG: ${{ inputs.tag }}
         GDAM_PUBLISH_ADDON: ${{ inputs.addon }}
         GDAM_PUBLISH_ASSET: ${{ inputs.asset }}

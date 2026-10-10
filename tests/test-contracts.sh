@@ -25,9 +25,7 @@ if assert_installer_pin "$tmp/mutated-install.yml" >"$tmp/pin.out" 2>"$tmp/pin.e
 fi
 grep -F 'installer script source must use a full 40-character commit SHA, not mutable main' "$tmp/pin.err"
 
-# Publishing no longer needs the CLI or any registry credential: the only
-# secret-shaped input left anywhere in this repository is the OIDC request
-# token GitHub injects, which must never be echoed.
+# Publishing accepts OIDC or a scoped Clerk key, never the old local key input.
 if grep -rn 'secret-key\|GDAM_SECRET_KEY' "$root/publish" "$root/release" "$root/install" "$root/.github/workflows"; then
   echo 'publication must not accept or forward a GDAM secret key' >&2
   exit 1
