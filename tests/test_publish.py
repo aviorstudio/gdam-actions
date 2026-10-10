@@ -60,8 +60,7 @@ class TrustedPublish(unittest.TestCase):
             'github_release_id': 406463606, 'commit_sha': COMMIT,
             'asset_id': 620869436, 'asset_name': 'addon.zip',
             'sha256': hashlib.sha256(ASSET).hexdigest(), 'asset_size': len(ASSET),
-            'published_at': '2026-10-08T05:47:02Z', 'prerelease': False,
-            'dependencies': {}, 'global_classes': []}])
+            'published_at': '2026-10-08T05:47:02Z', 'prerelease': False}])
         token_request = [r for r in self.registry.requests if r[0] == 'GET'][0]
         self.assertEqual(token_request[1], '/token?api-version=2&audience=api.gdam.dev')
         publish = [r for r in self.registry.requests if r[0] == 'POST'][0]
@@ -191,6 +190,10 @@ class TrustedPublish(unittest.TestCase):
         published = self.registry.published()[-1]
         self.assertEqual(published['dependencies'], {'@aviorstudio/gd-session': 'v0.0.1'})
         self.assertEqual(published['global_classes'], ['GdClerk'])
+        # Only what is declared is sent: a class-free asset with dependencies omits global_classes.
+        result = self.republish({'gdam.json': json.dumps({'addons': {'@aviorstudio/gd-session': {'tag': 'v0.0.1'}}})})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn('global_classes', self.registry.published()[-1])
         self.assertIn('Declares dependencies: @aviorstudio/gd-session@v0.0.1', result.stdout)
         self.assertIn('Declares global classes: GdClerk', result.stdout)
 

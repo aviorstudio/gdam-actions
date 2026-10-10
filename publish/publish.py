@@ -231,8 +231,14 @@ def main():
         'asset_id': asset['id'], 'asset_name': asset['name'], 'sha256': sha256,
         'asset_size': asset['size'], 'published_at': release['published_at'],
         'prerelease': bool(release.get('prerelease', False)),
-        'dependencies': dependencies, 'global_classes': classes,
     }
+    # Sent only when the asset declares something: a registry that predates
+    # the declaration rejects unknown fields, and an asset that declares
+    # nothing has nothing to lose by not saying so.
+    if dependencies:
+        body['dependencies'] = dependencies
+    if classes:
+        body['global_classes'] = classes
     editor = os.environ.get('GDAM_EDITOR_PLUGIN', '').strip().lower()
     if editor not in ('', 'false', 'true'):
         raise PublishError(f'editor-plugin must be true or false, got {editor!r}')
