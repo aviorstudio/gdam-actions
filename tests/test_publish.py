@@ -40,7 +40,7 @@ class TrustedPublish(unittest.TestCase):
                     'GITHUB_REPOSITORY': 'aviorstudio/example', 'GITHUB_SHA': COMMIT,
                     'GH_TOKEN': 'fixture-github', 'GDAM_PUBLISH_TAG': 'v1.2.3',
                     'GITHUB_OUTPUT': str(self.output)}
-        for key in ('GDAM_PUBLISH_ADDON', 'GDAM_PUBLISH_ASSET', 'GDAM_OIDC_AUDIENCE', 'GDAM_EDITOR_PLUGIN'):
+        for key in ('GDAM_PUBLISH_ADDON', 'GDAM_PUBLISH_ASSET', 'GDAM_OIDC_AUDIENCE', 'GDAM_EDITOR_PLUGIN', 'GDAM_API_KEY'):
             self.env.pop(key, None)
 
     def invoke(self, **overrides):
@@ -71,6 +71,33 @@ class TrustedPublish(unittest.TestCase):
         self.assertIn('Registry answered HTTP 201', result.stdout)
         self.assertIn('created=true\n', self.output.read_text())
         self.assertIn('sha256=' + hashlib.sha256(ASSET).hexdigest() + '\n', self.output.read_text())
+
+    def test_clerk_key_can_retry_an_older_release_without_oidc(self):
+        key = 'ak_' + 'A' * 48
+        result = self.invoke(GDAM_API_KEY=key, GITHUB_SHA='b' * 40,
+                             ACTIONS_ID_TOKEN_REQUEST_URL=None, ACTIONS_ID_TOKEN_REQUEST_TOKEN=None)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.registry.requests), 1)
+        self.assertEqual(self.registry.requests[0][2]['Authorization'], 'Bearer ' + key)
+        self.assertEqual(self.registry.published()[0]['commit_sha'], COMMIT)
+        self.assertNotIn('secret_key', self.registry.published()[0])
+        self.assertNotIn(key, result.stdout + result.stderr)
+
+    def test_legacy_or_malformed_key_fails_before_any_request(self):
+        for key in ['gdam_sk_' + 'A' * 43, 'ak_bad\nheader', 'not-a-key']:
+            result = self.invoke(GDAM_API_KEY=key)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertEqual(self.registry.requests, [])
+            self.assertNotIn(key, result.stdout + result.stderr)
+
+    def test_registry_echo_cannot_leak_clerk_key(self):
+        key = 'ak_' + 'A' * 48
+        self.registry.status = 401
+        self.registry.response = {'message': key}
+        result = self.invoke(GDAM_API_KEY=key)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertNotIn(key, result.stdout + result.stderr)
+        self.assertIn('[redacted]', result.stdout)
 
     def test_explicit_addon_and_custom_audience(self):
         result = self.invoke(GDAM_PUBLISH_ADDON='@aviorstudio/other-name', GDAM_OIDC_AUDIENCE='registry.example')

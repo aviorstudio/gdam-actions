@@ -55,8 +55,7 @@ Release named by `tag`, picks one asset, downloads it to hash its bytes, and
 posts the release facts (release id, asset id, name, size, SHA256, target
 commit, `published_at`, `prerelease`) to `POST /api/v1/publish` with the job's
 GitHub Actions OIDC token for audience `api.gdam.dev`. There is no registry
-credential: the registry trusts the token's repository identity. `GDAM_SECRET_KEY`
-and the `secret-key` input are gone, the GDAM CLI is no longer needed to
+credential: the registry trusts the token's repository identity. The GDAM CLI is no longer needed to
 publish, and `install` is unchanged.
 
 | Input | Default | Purpose |
@@ -169,3 +168,10 @@ against the commit first, then creates the tag and the release.
 ## License
 
 MIT
+
+For retries of older releases or existing addons published with a user credential,
+pass `api-key: ${{ secrets.GDAM_API_KEY }}` to `publish`. Create that scoped Clerk
+key through the GDAM app. The action sends it as a Bearer credential and verifies
+the release asset bytes before publishing. This path does not require OIDC
+permissions or a matching workflow commit; the key's current owner permissions
+are checked by the registry. The old `secret-key` input is unsupported.
