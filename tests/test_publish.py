@@ -191,8 +191,8 @@ class TrustedPublish(unittest.TestCase):
         self.assertEqual(published['dependencies'], {'@aviorstudio/gd-session': 'v0.0.1'})
         self.assertEqual(published['global_classes'], ['GdClerk'])
         # Only what is declared is sent: a class-free asset with dependencies omits global_classes.
-        result = self.republish({'gdam.json': json.dumps({'addons': {'@aviorstudio/gd-session': {'tag': 'v0.0.1'}}})})
-        self.assertEqual(result.returncode, 0, result.stderr)
+        again = self.republish({'gdam.json': json.dumps({'addons': {'@aviorstudio/gd-session': {'tag': 'v0.0.1'}}})})
+        self.assertEqual(again.returncode, 0, again.stderr)
         self.assertNotIn('global_classes', self.registry.published()[-1])
         self.assertIn('Declares dependencies: @aviorstudio/gd-session@v0.0.1', result.stdout)
         self.assertIn('Declares global classes: GdClerk', result.stdout)
