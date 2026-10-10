@@ -1,6 +1,10 @@
 name: Publish tested addon release
 description: Publish the exact verified ZIP to GitHub before registering its exact tag with GDAM by trusted publishing; the job needs contents write and id-token write
 inputs:
+  api-key:
+    description: Optional scoped Clerk publishing key for the existing addon
+    required: false
+    default: ''
   tag:
     description: Exact case-sensitive release tag already checked against addon metadata
     required: true
@@ -24,6 +28,7 @@ runs:
     - name: Publish exact tested release
       shell: bash
       env:
+        GDAM_API_KEY: ${{ inputs.api-key }}
         GDAM_RELEASE_TAG: ${{ inputs.tag }}
         GDAM_RELEASE_ASSET: ${{ inputs.asset }}
         GDAM_RELEASE_SHA256: ${{ inputs.tested-sha256 }}

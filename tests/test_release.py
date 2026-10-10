@@ -34,6 +34,7 @@ class TestedRelease(unittest.TestCase):
                     'GDAM_RELEASE_TAG': 'v1.2.3', 'GDAM_RELEASE_ASSET': str(self.asset),
                     'GDAM_RELEASE_SHA256': hashlib.sha256(self.asset.read_bytes()).hexdigest(),
                     'GH_TOKEN': 'fixture-github', 'COMMAND_LOG': str(self.log)}
+        self.env.pop('GDAM_API_KEY', None)
 
     def invoke(self):
         return subprocess.run(['python3', str(SCRIPT)], cwd=self.root, env=self.env, capture_output=True, text=True)
@@ -54,6 +55,24 @@ class TestedRelease(unittest.TestCase):
         self.assertEqual(published[0]['commit_sha'], self.sha)
         self.assertEqual(published[0]['sha256'], self.env['GDAM_RELEASE_SHA256'])
         self.assertNotIn(self.registry.token, result.stdout+result.stderr)
+
+    def test_clerk_key_is_forwarded_without_oidc(self):
+        key = 'ak_' + 'A' * 48
+        self.env['GDAM_API_KEY'] = key
+        self.env.pop('ACTIONS_ID_TOKEN_REQUEST_URL')
+        self.env.pop('ACTIONS_ID_TOKEN_REQUEST_TOKEN')
+        result = self.invoke()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(len(self.registry.requests), 1)
+        self.assertEqual(self.registry.requests[0][2]['Authorization'], 'Bearer ' + key)
+        self.assertNotIn(key, result.stdout + result.stderr)
+
+    def test_invalid_key_rejects_before_creating_release(self):
+        self.env['GDAM_API_KEY'] = 'gdam_sk_old-key'
+        result = self.invoke()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(self.log.exists())
+        self.assertEqual(self.registry.requests, [])
 
     def test_missing_oidc_permission_rejects_before_github_release(self):
         self.env.pop('ACTIONS_ID_TOKEN_REQUEST_URL')

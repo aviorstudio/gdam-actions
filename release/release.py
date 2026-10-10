@@ -26,7 +26,10 @@ def main():
         raise ValueError('invalid exact tag or tested artifact digest')
     if not os.environ.get('GH_TOKEN'):
         raise ValueError('GH_TOKEN is required')
-    if not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL') or not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN'):
+    api_key = os.environ.get('GDAM_API_KEY', '').strip()
+    if api_key and not re.fullmatch(r'ak_[A-Za-z0-9_-]{20,512}', api_key):
+        raise ValueError('api-key must be a Clerk publishing key')
+    if not api_key and (not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_URL') or not os.environ.get('ACTIONS_ID_TOKEN_REQUEST_TOKEN')):
         raise ValueError('registry publication needs the job permission id-token: write')
     root = Path(run('git', 'rev-parse', '--show-toplevel')).resolve()
     if run('git', 'rev-parse', 'HEAD') != sha or run('git', 'status', '--porcelain', '--untracked-files=no'):
