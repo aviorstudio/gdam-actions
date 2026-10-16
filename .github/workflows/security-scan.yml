@@ -8,13 +8,16 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
+    name: "Scan dependencies"
     if: github.ref == 'refs/heads/main'
     runs-on: blacksmith-2vcpu-ubuntu-2404
     timeout-minutes: 110
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: "Check out source"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
+      - name: "Set up tools"
+        uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca
       - name: Security Scan
         run: python3 .github/workflow_operation.py security-scan

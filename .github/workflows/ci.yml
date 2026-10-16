@@ -30,7 +30,7 @@ permissions:
 #   fixtures from make test, neither of which belongs in the install matrix.
 jobs:
   install:
-    name: install (${{ matrix.os }})
+    name: "Install (${{ matrix.os }})"
     runs-on: ${{ matrix.runner }}
     # Bounded, so a step that hangs fails here rather than sitting until the
     # runner's own timeout hours later.
@@ -46,16 +46,17 @@ jobs:
           - os: macos-latest
             runner: blacksmith-6vcpu-macos-latest
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: "Check out source"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Install the exact public CLI
+      - name: "Install GDAM"
         id: exact
         uses: ./install
         with:
           version: v0.0.8
           archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92' || '' }}
 
-      - name: gdam is on PATH and runs
+      - name: "Gdam is on PATH and runs"
         shell: bash
         run: |
           set -euo pipefail
@@ -66,7 +67,7 @@ jobs:
           [ "${{ steps.exact.outputs.version }}" = "gdam 0.0.8" ] \
             || { echo "install output did not report gdam 0.0.8" >&2; exit 1; }
 
-      - name: Install a pinned version
+      - name: "Install GDAM"
         id: pinned
         uses: ./install
         with:
@@ -81,7 +82,7 @@ jobs:
           echo "reported: $got"
           [ "$got" = "gdam 0.0.6" ] || { echo "expected gdam 0.0.6, got: $got" >&2; exit 1; }
 
-      - name: A version without the leading v resolves the same
+      - name: "Install GDAM"
         uses: ./install
         with:
           version: '0.0.6'
@@ -107,7 +108,8 @@ jobs:
       # GitHub Actions OIDC token exactly as a consumer's release job does.
       id-token: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: "Check out source"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate unified workflow contract
         shell: bash
         run: |
@@ -123,7 +125,7 @@ jobs:
       # holds id-token: write so the guard exercises the real OIDC plumbing
       # up to the point where the release lookup fails; nothing is minted or
       # sent to the registry for a release that does not exist.
-      - name: Fails when the release does not exist
+      - name: "Publish addon"
         id: no-release
         continue-on-error: true
         uses: ./publish

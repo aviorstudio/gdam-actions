@@ -1,4 +1,4 @@
-name: 'Publish to GDAM'
+name: "Publish"
 description: >-
   Register an existing GitHub Release using GitHub Actions OIDC or a scoped
   Clerk publishing key. OIDC requires `permissions: id-token: write`.
