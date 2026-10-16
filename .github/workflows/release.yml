@@ -55,6 +55,7 @@ jobs:
   # execute. Real installs on both supported platforms are the only meaningful
   # verification this repository has.
   verify:
+    name: "Verify release"
     uses: ./.github/workflows/ci.yml
     # Explicit, and required. The workflow-level `permissions: {}` above grants
     # `contents: none`, and a called workflow cannot ask for more than its
@@ -69,6 +70,7 @@ jobs:
       id-token: write
 
   release:
+    name: "Release"
     needs: verify
     runs-on: blacksmith-2vcpu-ubuntu-2404
     # Bounded, so a step that hangs fails here rather than sitting until the
@@ -79,7 +81,8 @@ jobs:
       # komizo-actions, nothing is rewritten before tagging.
       contents: write
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: "Check out source"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The version comes from the tag history, which a shallow clone
           # does not have.
