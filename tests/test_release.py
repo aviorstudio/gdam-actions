@@ -14,7 +14,7 @@ SCRIPT = Path(__file__).resolve().parents[1]/'release/release.py'
 
 class TestedRelease(unittest.TestCase):
     def setUp(self):
-        self.folder = tempfile.TemporaryDirectory(dir='/var/tmp')
+        self.folder = tempfile.TemporaryDirectory()
         self.addCleanup(self.folder.cleanup)
         self.root = Path(self.folder.name)
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
