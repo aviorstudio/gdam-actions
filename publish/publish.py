@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Register an existing GitHub Release with the GDAM registry by trusted publishing.
+"""Register an existing GitHub Release with the gdam registry by trusted publishing.
 
 The registry no longer reads GitHub itself. This script reads the release the
 caller already created, collects the facts the registry stores (release id,
@@ -68,7 +68,7 @@ def release_facts(repository, tag, asset_name, conventional):
         raise PublishError(f'GitHub asset digest has an unexpected format: {declared}')
     published_at = release.get('published_at')
     if not isinstance(published_at, str) or not published_at:
-        raise PublishError('release has no published_at; drafts cannot be published to GDAM')
+        raise PublishError('release has no published_at; drafts cannot be published to gdam')
     return release, asset, declared
 
 

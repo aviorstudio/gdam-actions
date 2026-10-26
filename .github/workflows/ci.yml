@@ -31,18 +31,18 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
-    - name: Set up locked Komizo
+    - name: Set up locked komizo
       uses: nicodes/komizo/setup@40086036977a5fc0119d6c4c1d5eb6ae3ab3b4b9
       env:
         GH_TOKEN: ${{ github.token }}
       timeout-minutes: 5
-    - name: Install GDAM
+    - name: Install gdam
       id: exact
       uses: ./install
       with:
         version: v0.0.8
         archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92' || '' }}
-    - name: Gdam is on PATH and runs
+    - name: gdam is on PATH and runs
       shell: bash
       run: |-
         set -euo pipefail
@@ -52,7 +52,7 @@ jobs:
         [ "$got" = "gdam 0.0.8" ] || { echo "expected gdam 0.0.8, got: $got" >&2; exit 1; }
         [ "${{ steps.exact.outputs.version }}" = "gdam 0.0.8" ] \
           || { echo "install output did not report gdam 0.0.8" >&2; exit 1; }
-    - name: Install GDAM
+    - name: Install gdam
       id: pinned
       uses: ./install
       with:
@@ -65,7 +65,7 @@ jobs:
         got="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
         echo "reported: $got"
         [ "$got" = "gdam 0.0.6" ] || { echo "expected gdam 0.0.6, got: $got" >&2; exit 1; }
-    - name: Install GDAM
+    - name: Install gdam
       uses: ./install
       with:
         version: 0.0.6
@@ -95,7 +95,7 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
-    - name: Set up locked Komizo
+    - name: Set up locked komizo
       uses: nicodes/komizo/setup@40086036977a5fc0119d6c4c1d5eb6ae3ab3b4b9
       env:
         GH_TOKEN: ${{ github.token }}

@@ -57,7 +57,7 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Publish to GDAM
+    - name: Publish to gdam
       id: publish
       shell: bash
       env:
