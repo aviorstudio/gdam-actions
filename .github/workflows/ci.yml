@@ -1,165 +1,147 @@
-name: "Build & Test"
-
-on:
+name: Build & Test
+'on':
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
-  workflow_dispatch:
+    types:
+    - opened
+    - synchronize
+    - reopened
+    - ready_for_review
+  workflow_dispatch: null
   push:
     branches:
-      - main
-  # Callable, so Release runs exactly these checks rather than a copy of them.
-  # A reusable WORKFLOW rather than a composite action, because the install job
-  # is a matrix over two operating systems and a matrix belongs to a job -- a
-  # composite action cannot own one, so reusing it that way would have meant
-  # rewriting the matrix in the caller and letting the two drift.
-  workflow_call:
-
+    - main
+  workflow_call: null
 permissions:
   contents: read
-
-# TWO JOBS, BOTH LOAD-BEARING. The organisation's rule is one job per
-# workflow; this file is the documented exception, for two independent reasons.
-#
-#   `install` is a matrix across ubuntu and macos. A composite action cannot
-#   express a matrix, and collapsing this to one runner would silently drop the
-#   macOS coverage that nothing else provides.
-#
-#   `publish-guards` asserts that publish FAILS closed for a missing release
-#   and for a job without id-token: write. It needs its own permissions block
-#   (the token request is part of what it exercises) and the loopback registry
-#   fixtures from make test, neither of which belongs in the install matrix.
 jobs:
   install:
-    name: "Install (${{ matrix.os }})"
+    name: Install (${{ matrix.os }})
     runs-on: ${{ matrix.runner }}
-    # Bounded, so a step that hangs fails here rather than sitting until the
-    # runner's own timeout hours later.
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        # Both platforms the install script supports. Every consumer runs on
-        # Linux today, but macOS is a supported target and nothing else checks it.
         include:
-          - os: ubuntu-latest
-            runner: ubuntu-24.04
-          - os: macos-latest
-            runner: macos-latest
+        - os: ubuntu-latest
+          runner: ubuntu-24.04
+        - os: macos-latest
+          runner: macos-latest
     steps:
-      - name: "Check out source"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: "Install GDAM"
-        id: exact
-        uses: ./install
-        with:
-          version: v0.0.8
-          archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92' || '' }}
-
-      - name: "Gdam is on PATH and runs"
-        shell: bash
-        run: |
-          set -euo pipefail
-          command -v gdam
-          got="$(gdam --version | head -n 1)"
-          echo "reported: $got"
-          [ "$got" = "gdam 0.0.8" ] || { echo "expected gdam 0.0.8, got: $got" >&2; exit 1; }
-          [ "${{ steps.exact.outputs.version }}" = "gdam 0.0.8" ] \
-            || { echo "install output did not report gdam 0.0.8" >&2; exit 1; }
-
-      - name: "Install GDAM"
-        id: pinned
-        uses: ./install
-        with:
-          version: v0.0.6
-          install-dir: ${{ runner.temp }}/gdam-pinned
-
-      - name: The pinned version is the one installed
-        shell: bash
-        run: |
-          set -euo pipefail
-          got="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
-          echo "reported: $got"
-          [ "$got" = "gdam 0.0.6" ] || { echo "expected gdam 0.0.6, got: $got" >&2; exit 1; }
-
-      - name: "Install GDAM"
-        uses: ./install
-        with:
-          version: '0.0.6'
-          install-dir: ${{ runner.temp }}/gdam-nov
-
-      - name: Both spellings agree
-        shell: bash
-        run: |
-          set -euo pipefail
-          a="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
-          b="$("${{ runner.temp }}/gdam-nov/gdam" --version | head -n 1)"
-          [ "$a" = "$b" ] || { echo "v0.0.6 gave '$a' but 0.0.6 gave '$b'" >&2; exit 1; }
-
+    - name: Check out source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Set up locked Komizo
+      uses: nicodes/komizo/setup@40086036977a5fc0119d6c4c1d5eb6ae3ab3b4b9
+      env:
+        GH_TOKEN: ${{ github.token }}
+      timeout-minutes: 5
+    - name: Install GDAM
+      id: exact
+      uses: ./install
+      with:
+        version: v0.0.8
+        archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92' || '' }}
+    - name: Gdam is on PATH and runs
+      shell: bash
+      run: |-
+        set -euo pipefail
+        command -v gdam
+        got="$(gdam --version | head -n 1)"
+        echo "reported: $got"
+        [ "$got" = "gdam 0.0.8" ] || { echo "expected gdam 0.0.8, got: $got" >&2; exit 1; }
+        [ "${{ steps.exact.outputs.version }}" = "gdam 0.0.8" ] \
+          || { echo "install output did not report gdam 0.0.8" >&2; exit 1; }
+    - name: Install GDAM
+      id: pinned
+      uses: ./install
+      with:
+        version: v0.0.6
+        install-dir: ${{ runner.temp }}/gdam-pinned
+    - name: The pinned version is the one installed
+      shell: bash
+      run: |-
+        set -euo pipefail
+        got="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
+        echo "reported: $got"
+        [ "$got" = "gdam 0.0.6" ] || { echo "expected gdam 0.0.6, got: $got" >&2; exit 1; }
+    - name: Install GDAM
+      uses: ./install
+      with:
+        version: 0.0.6
+        install-dir: ${{ runner.temp }}/gdam-nov
+    - name: Both spellings agree
+      shell: bash
+      run: |-
+        set -euo pipefail
+        a="$("${{ runner.temp }}/gdam-pinned/gdam" --version | head -n 1)"
+        b="$("${{ runner.temp }}/gdam-nov/gdam" --version | head -n 1)"
+        [ "$a" = "$b" ] || { echo "v0.0.6 gave '$a' but 0.0.6 gave '$b'" >&2; exit 1; }
+    permissions:
+      contents: read
+      attestations: read
+    env:
+      MISE_GITHUB_TOKEN: ${{ github.token }}
   publish-guards:
     name: Test
     runs-on: ubuntu-24.04
-    # Bounded, so a step that hangs fails here rather than sitting until the
-    # runner's own timeout hours later.
     timeout-minutes: 20
     permissions:
       contents: read
-      # Publishing is trusted publishing: the guard below requests a real
-      # GitHub Actions OIDC token exactly as a consumer's release job does.
       id-token: write
+      attestations: read
     steps:
-      - name: "Check out source"
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Record tested integration identity
-        if: github.event_name == 'pull_request'
-        uses: nicodes/tools/integration-identity@247267492cd455647facafcfcc6eed4c63c49c0e # v0.27.2
-        env:
-          EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
-      - name: Upload artifacts
-        if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: fleet-integration-${{ github.run_id }}-${{ github.run_attempt }}
-          path: .artifacts/fleet-integration.json
-          if-no-files-found: error
-          retention-days: 7
-      - name: Validate unified workflow contract
-        shell: bash
-        run: |
-          python3 -m venv "$RUNNER_TEMP/fleet-workflow-contract"
-          "$RUNNER_TEMP/fleet-workflow-contract/bin/python" -m pip install --disable-pip-version-check --only-binary=:all: --require-hashes -r .github/workflow-contract-requirements.txt
-          "$RUNNER_TEMP/fleet-workflow-contract/bin/python" .github/workflow_contract.py
-
-      - name: Trusted-publishing and immutable-source contract tests
-        run: make test
-
-      # The ways publish is misused. Each should fail with a message that
-      # names the cause, which is the whole reason the guards exist. The job
-      # holds id-token: write so the guard exercises the real OIDC plumbing
-      # up to the point where the release lookup fails; nothing is minted or
-      # sent to the registry for a release that does not exist.
-      - name: "Publish addon"
-        id: no-release
-        continue-on-error: true
-        uses: ./publish
-        with:
-          tag: 'Release-V1.2.3'
-
-      - name: That failure was expected
-        shell: bash
-        run: |
-          [ "${{ steps.no-release.outcome }}" = "failure" ] \
-            || { echo 'publish should fail when the release tag does not exist' >&2; exit 1; }
-
-      - name: Fails without an OIDC token
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GDAM_PUBLISH_TAG: 'Release-V1.2.3'
-        run: |
-          set -euo pipefail
-          if env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
-              python3 publish/publish.py >"$RUNNER_TEMP/no-token.out" 2>"$RUNNER_TEMP/no-token.err"; then
-            echo 'publish should fail when the job lacks id-token: write' >&2; exit 1
-          fi
-          grep -F 'id-token: write' "$RUNNER_TEMP/no-token.err"
+    - name: Check out source
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+    - name: Set up locked Komizo
+      uses: nicodes/komizo/setup@40086036977a5fc0119d6c4c1d5eb6ae3ab3b4b9
+      env:
+        GH_TOKEN: ${{ github.token }}
+      timeout-minutes: 5
+    - name: Record tested integration identity
+      if: github.event_name == 'pull_request'
+      env:
+        EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
+      run: komizo exec --tools python -- python3 -c 'import os,runpy;runpy.run_path(os.environ["CICD_ENGINEERING"]+"/helpers/integration-identity.py",run_name="__main__")'
+    - name: Upload artifacts
+      if: github.event_name == 'pull_request'
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: fleet-integration-${{ github.run_id }}-${{ github.run_attempt }}
+        path: .artifacts/fleet-integration.json
+        if-no-files-found: error
+        retention-days: 7
+        include-hidden-files: true
+    - name: Trusted-publishing and immutable-source contract tests
+      uses: nicodes/komizo/run@40086036977a5fc0119d6c4c1d5eb6ae3ab3b4b9
+      with:
+        target: check
+    - name: Publish addon
+      id: no-release
+      continue-on-error: true
+      uses: ./publish
+      with:
+        tag: Release-V1.2.3
+    - name: That failure was expected
+      shell: bash
+      run: |-
+        [ "${{ steps.no-release.outcome }}" = "failure" ] \
+          || { echo 'publish should fail when the release tag does not exist' >&2; exit 1; }
+    - name: Fails without an OIDC token
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        GDAM_PUBLISH_TAG: Release-V1.2.3
+      run: |
+        komizo exec --tools python -- bash -euo pipefail <<'KOMIZO_COMMAND'
+        set -euo pipefail
+        if env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+            python3 publish/publish.py >"$RUNNER_TEMP/no-token.out" 2>"$RUNNER_TEMP/no-token.err"; then
+          echo 'publish should fail when the job lacks id-token: write' >&2; exit 1
+        fi
+        grep -F 'id-token: write' "$RUNNER_TEMP/no-token.err"
+        KOMIZO_COMMAND
+    env:
+      MISE_GITHUB_TOKEN: ${{ github.token }}
