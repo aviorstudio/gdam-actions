@@ -135,7 +135,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
         GDAM_PUBLISH_TAG: Release-V1.2.3
       run: |
-        komizo exec --tools python,node -- bash -euo pipefail <<'KOMIZO_COMMAND'
+        komizo exec --tools python -- bash -euo pipefail <<'KOMIZO_COMMAND'
         set -euo pipefail
         if env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
             python3 publish/publish.py >"$RUNNER_TEMP/no-token.out" 2>"$RUNNER_TEMP/no-token.err"; then
