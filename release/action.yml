@@ -1,5 +1,5 @@
 name: Publish tested addon release
-description: Publish the exact verified ZIP to GitHub before registering its exact tag with GDAM by trusted publishing; the job needs contents write and id-token write
+description: Publish the exact verified ZIP to GitHub before registering its exact tag with gdam by trusted publishing; the job needs contents write and id-token write
 inputs:
   api-key:
     description: Optional scoped Clerk publishing key for the existing addon

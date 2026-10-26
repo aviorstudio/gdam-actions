@@ -29,7 +29,7 @@ class InstallerBoundaries(unittest.TestCase):
             env = {**os.environ, 'RUNNER_TEMP':directory, 'GDAM_INSTALL_DIR':str(root/'bin'),
                    'GDAM_ARCHIVE_SHA256':checksum, 'GDAM_INSTALL_VERSION':version,
                    'GITHUB_OUTPUT':str(root/'output'), 'GITHUB_PATH':str(root/'path')}
-            result = subprocess.run(['bash', '-ec', step('Install GDAM')], env=env, capture_output=True, text=True)
+            result = subprocess.run(['bash', '-ec', step('Install gdam')], env=env, capture_output=True, text=True)
             return result, (root/'bin/gdam').exists(), (root/'output').read_text() if (root/'output').exists() else ''
 
     def test_reviewed_cache_hit_installs_exact_version(self):

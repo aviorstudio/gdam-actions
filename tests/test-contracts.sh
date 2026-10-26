@@ -27,7 +27,7 @@ grep -F 'installer script source must use a full 40-character commit SHA, not mu
 
 # Publishing accepts OIDC or a scoped Clerk key, never the old local key input.
 if grep -rn 'secret-key\|GDAM_SECRET_KEY' "$root/publish" "$root/release" "$root/install" "$root/.github/workflows"; then
-  echo 'publication must not accept or forward a GDAM secret key' >&2
+  echo 'publication must not accept or forward a gdam secret key' >&2
   exit 1
 fi
 if ! grep -Eq '^\s+id-token: write$' "$root/.github/workflows/ci.yml"; then
