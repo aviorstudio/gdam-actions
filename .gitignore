@@ -4,3 +4,7 @@ __pycache__/
 
 # Generated CI evidence
 .artifacts/
+
+.komizo.mise*.toml
+
+.komizo.mise*.lock

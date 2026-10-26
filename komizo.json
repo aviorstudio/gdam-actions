@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "repository": "aviorstudio/gdam-actions",
+  "recipe": "configuration",
+  "tools": {
+    "python": "3.13.11",
+    "actionlint": "1.7.12"
+  },
+  "validation": {
+    "workflow": {
+      "required": [
+        "ci.yml",
+        "dependency-maintenance.yml",
+        "dependency-policy.yml",
+        "security-scan.yml",
+        "release.yml"
+      ],
+      "ci_gates": [
+        "Test"
+      ]
+    }
+  },
+  "stages": {
+    "lint": [
+      [
+        "actionlint"
+      ],
+      [
+        "bash",
+        "-n",
+        "tests/test-contracts.sh"
+      ],
+      [
+        "python3",
+        "-c",
+        "import ast;from pathlib import Path;[ast.parse(Path(p).read_text()) for p in (\"release/release.py\",\"publish/publish.py\")]"
+      ]
+    ],
+    "unit": [
+      [
+        "bash",
+        "tests/test-contracts.sh"
+      ],
+      [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_publish.py",
+        "-v"
+      ],
+      [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_release.py",
+        "-v"
+      ]
+    ],
+    "integration": [
+      [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-p",
+        "test_installer.py",
+        "-v"
+      ]
+    ]
+  },
+  "tasks": {
+    "dependency-maintenance": [
+      [
+        "python3",
+        "-c",
+        "import os,runpy;runpy.run_path(os.environ[\"CICD_ENGINEERING\"]+\"/helpers/watch-tools.py\",run_name=\"__main__\")"
+      ]
+    ]
+  }
+}
