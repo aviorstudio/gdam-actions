@@ -1,4 +1,4 @@
-"""Loopback stand-ins for GitHub (a fake `gh`) and the GDAM registry."""
+"""Loopback stand-ins for GitHub (a fake `gh`) and the gdam registry."""
 import hashlib
 import http.server
 import json
