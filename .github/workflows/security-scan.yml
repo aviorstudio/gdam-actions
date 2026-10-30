@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    name: Scan dependencies
+    name: Check action security
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 110
@@ -23,7 +23,7 @@ jobs:
         GH_TOKEN: ${{ github.token }}
       timeout-minutes: 5
     - name: Security Scan
-      run: mise run vuln
+      run: mise run check
     permissions:
       contents: read
       attestations: read
