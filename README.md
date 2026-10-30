@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: bd9c0265b9b5f5ae15e7bffa51f1964b4eb4aebe45aa78db7e82c8f07ec784e7 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 4712472d3df12311dc51cb26604e2ff21b02d4283ead2533ff55680d57735d89 -->
 
 # gdam Actions
 
@@ -6,7 +6,7 @@ GitHub Actions for installing gdam and publishing verified addon releases. Pin a
 
 Use `install` with an exact `version` and reviewed `archive-sha256`. Use `publish` to register an existing immutable GitHub Release, or `release` to create one from verified ZIP bytes. Publishing requires `contents: read` and `id-token: write`; the release action also requires `contents: write`.
 
-For development, install the [komizo release](https://github.com/nicodes/komizo#install) matching `komizo.lock`, then run `mise run check`. CI retains real Linux and macOS installations and trusted-publishing refusal controls.
+For development, install the tool versions in `mise.toml`, prepare the pinned Tools helper checkout described below, then run `mise run check`. CI retains real Linux and macOS installations and trusted-publishing refusal controls.
 
 ## Contributor verification
 
