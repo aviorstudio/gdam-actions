@@ -31,8 +31,8 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
-    - name: Set up locked komizo
-      uses: nicodes/komizo/setup@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
+    - name: Set up development tools
+      uses: nicodes/tools/setup@091101094fedf5ce2e67c339c1c9c842d6a662dc
       env:
         GH_TOKEN: ${{ github.token }}
       timeout-minutes: 5
@@ -41,7 +41,8 @@ jobs:
       uses: ./install
       with:
         version: v0.0.8
-        archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92' || '' }}
+        archive-sha256: ${{ matrix.os == 'ubuntu-latest' && '7ef2a325ad1416ce850a332f4380b1b290bd7a56e2a20f544536386cf64abb92'
+          || '' }}
     - name: gdam is on PATH and runs
       shell: bash
       run: |-
@@ -95,8 +96,8 @@ jobs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
-    - name: Set up locked komizo
-      uses: nicodes/komizo/setup@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
+    - name: Set up development tools
+      uses: nicodes/tools/setup@091101094fedf5ce2e67c339c1c9c842d6a662dc
       env:
         GH_TOKEN: ${{ github.token }}
       timeout-minutes: 5
@@ -104,7 +105,7 @@ jobs:
       if: github.event_name == 'pull_request'
       env:
         EXPECTED_HEAD: ${{ github.event.pull_request.head.sha }}
-      run: komizo exec --tools python -- python3 -c 'import os,runpy;runpy.run_path(os.environ["CICD_ENGINEERING"]+"/helpers/integration-identity.py",run_name="__main__")'
+      run: python3 "$TOOLS_ROOT/helpers/integration-identity.py"
     - name: Upload artifacts
       if: github.event_name == 'pull_request'
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -115,9 +116,10 @@ jobs:
         retention-days: 7
         include-hidden-files: true
     - name: Trusted-publishing and immutable-source contract tests
-      uses: nicodes/komizo/run@2ca94e2fd4bb05f41bb228e9c366e5cc733c75e6
-      with:
-        target: check
+      shell: bash
+      run: |-
+        set -euo pipefail
+        mise run check
     - name: Publish addon
       id: no-release
       continue-on-error: true
@@ -134,14 +136,12 @@ jobs:
       env:
         GH_TOKEN: ${{ github.token }}
         GDAM_PUBLISH_TAG: Release-V1.2.3
-      run: |
-        komizo exec --tools python -- bash -euo pipefail <<'KOMIZO_COMMAND'
+      run: |-
         set -euo pipefail
         if env -u ACTIONS_ID_TOKEN_REQUEST_URL -u ACTIONS_ID_TOKEN_REQUEST_TOKEN \
             python3 publish/publish.py >"$RUNNER_TEMP/no-token.out" 2>"$RUNNER_TEMP/no-token.err"; then
           echo 'publish should fail when the job lacks id-token: write' >&2; exit 1
         fi
         grep -F 'id-token: write' "$RUNNER_TEMP/no-token.err"
-        KOMIZO_COMMAND
     env:
       MISE_GITHUB_TOKEN: ${{ github.token }}
