@@ -8,7 +8,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   verify:
-    name: Check action security
+    name: "Scan dependencies"
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 110
