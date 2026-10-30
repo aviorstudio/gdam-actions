@@ -1,0 +1,42 @@
+[tools]
+"python" = "3.13.11"
+"actionlint" = "1.7.12"
+
+[env]
+TOOLS_ROOT = "{{ get_env(name='TOOLS_ROOT', default=config_root ~ '/.ci-tools') }}"
+GOTOOLCHAIN = "local"
+PYTHONDONTWRITEBYTECODE = "1"
+
+[tasks."lint"]
+run = ["actionlint", "bash -n tests/test-contracts.sh", "python3 -c 'import ast;from pathlib import Path;[ast.parse(Path(p).read_text()) for p in (\"release/release.py\",\"publish/publish.py\")]'"]
+
+[tasks."unit"]
+run = "python3 \"$TOOLS_ROOT/helpers/verification.py\" test --name unit --artifact .artifacts/build -- mise run _unit"
+
+[tasks."integration"]
+run = "python3 \"$TOOLS_ROOT/helpers/verification.py\" test --name integration --artifact .artifacts/build -- mise run _integration"
+
+[tasks."dependency-maintenance"]
+run = ["python3 \"$TOOLS_ROOT/helpers/watch-tools.py\""]
+
+[tasks."_unit"]
+run = ["bash tests/test-contracts.sh", "python3 -m unittest discover -s tests -p test_publish.py -v", "python3 -m unittest discover -s tests -p test_release.py -v"]
+hide = true
+
+[tasks."_integration"]
+run = ["python3 -m unittest discover -s tests -p test_installer.py -v"]
+hide = true
+
+[tasks."_test-stages"]
+run = [{"task" = "unit"}, {"task" = "integration"}]
+hide = true
+
+[tasks."test"]
+run = "python3 \"$TOOLS_ROOT/helpers/verification.py\" session --test unit --test integration -- mise run _test-stages"
+
+[tasks."_check-stages"]
+run = [{"task" = "lint"}, {"task" = "unit"}, {"task" = "integration"}]
+hide = true
+
+[tasks."check"]
+run = "python3 \"$TOOLS_ROOT/helpers/verification.py\" session --test unit --test integration -- mise run _check-stages"
