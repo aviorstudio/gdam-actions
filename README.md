@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 4712472d3df12311dc51cb26604e2ff21b02d4283ead2533ff55680d57735d89 -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 82d98d95b1921fe1af4c068f6a2af7d86ea14b8163dbe4bdf135ec691c06239e -->
 
 # gdam Actions
 
@@ -20,3 +20,7 @@ mise run check
 ```
 
 Native build and test commands retain source and output checks, with receipts in `.artifacts/verification`. Existing product release rules and artifacts remain owned by this repository. End users install the product’s published distribution.
+
+## Contributor task interface
+
+Contributor tool versions and task entry points live in the native Mise configuration. Use `mise run lint` for source checks, `mise run test` for the applicable behavioral tests, and `mise run check` for the complete supported gate. `mise run clean` removes declared generated outputs while preserving source, credentials and retained data. This package has no application development service.
