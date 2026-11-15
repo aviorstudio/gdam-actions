@@ -15,7 +15,7 @@ def step(name):
     return textwrap.dedent(section.split('      run: |\n', 1)[1])
 
 class InstallerBoundaries(unittest.TestCase):
-    def run_fixture(self, corrupt=False, version='v0.0.8', reported='0.0.8'):
+    def run_fixture(self, corrupt=False, version='v9.8.7', reported='v9.8.7'):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             archive = root/'gdam-reviewed/archive.tar.gz'
@@ -35,7 +35,7 @@ class InstallerBoundaries(unittest.TestCase):
     def test_reviewed_cache_hit_installs_exact_version(self):
         result, installed, output = self.run_fixture()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertTrue(installed); self.assertIn('version=gdam 0.0.8', output)
+        self.assertTrue(installed); self.assertIn('version=gdam v9.8.7', output)
 
     def test_corrupt_cache_fails_before_extracting_or_running(self):
         result, installed, output = self.run_fixture(corrupt=True)
@@ -44,10 +44,10 @@ class InstallerBoundaries(unittest.TestCase):
         self.assertIn('checksum differs', result.stderr)
 
     def test_wrong_reviewed_release_cannot_be_reported_as_requested(self):
-        result, installed, output = self.run_fixture(reported='0.0.6')
+        result, installed, output = self.run_fixture(reported='v8.7.6')
         self.assertNotEqual(result.returncode, 0); self.assertEqual(output, '')
 
     def test_mutable_versions_or_invalid_hash_fail_preflight(self):
-        for version, checksum in [('latest', 'a'*64), ('v0.0.8', 'bad')]:
+        for version, checksum in [('latest', 'a'*64), ('9.8.7', 'a'*64), ('v9.8.7', 'bad')]:
             env = {**os.environ, 'GDAM_VERSION':version, 'GDAM_SHA256':checksum}
             self.assertNotEqual(subprocess.run(['bash','-ec',step('Validate immutable archive pin')],env=env,capture_output=True).returncode, 0)

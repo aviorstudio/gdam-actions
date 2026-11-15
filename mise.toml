@@ -4,7 +4,6 @@
 
 [env]
 TOOLS_ROOT = "{{ get_env(name='TOOLS_ROOT', default=config_root ~ '/.ci-tools') }}"
-GOTOOLCHAIN = "local"
 PYTHONDONTWRITEBYTECODE = "1"
 
 [tasks."lint"]
