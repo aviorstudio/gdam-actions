@@ -30,7 +30,7 @@ if grep -rn 'secret-key\|GDAM_SECRET_KEY' "$root/publish" "$root/release" "$root
   echo 'publication must not accept or forward a gdam secret key' >&2
   exit 1
 fi
-if ! grep -Eq '^\s+id-token: write$' "$root/.github/workflows/ci.yml"; then
+if ! grep -Eq '^\s+id-token: write$' "$root/.github/workflows/build-and-test.yml"; then
   echo 'CI must grant id-token: write so the publish guard runs the real token path' >&2
   exit 1
 fi

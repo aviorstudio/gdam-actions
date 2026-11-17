@@ -15,7 +15,7 @@ concurrency: release-${{ github.repository }}
 jobs:
   verify:
     name: Verify release
-    uses: ./.github/workflows/ci.yml
+    uses: ./.github/workflows/build-and-test.yml
     permissions:
       contents: read
       id-token: write
