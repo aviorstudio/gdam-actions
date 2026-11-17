@@ -1,4 +1,4 @@
-<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 82d98d95b1921fe1af4c068f6a2af7d86ea14b8163dbe4bdf135ec691c06239e -->
+<!-- Generated from private documentation source. Do not edit directly. Source SHA256: 84d7d4f1c5255ce2b07f6ba6266a01165dd2015f3f8662c2733bc324466887bb -->
 
 # gdam Actions
 
@@ -14,7 +14,7 @@ Tool versions and native tasks live in `mise.toml`. Prepare the pinned helper so
 
 ```sh
 git clone https://github.com/nicodes/tools.git .ci-tools
-git -C .ci-tools checkout --detach 091101094fedf5ce2e67c339c1c9c842d6a662dc
+git -C .ci-tools checkout --detach 71540eb673ebd47162de3b78bb6ffbf77605d2ab
 mise install
 mise run check
 ```
